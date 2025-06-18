@@ -16,8 +16,16 @@ define('GF_REPORTS_VERSION', '1.0');
 define('GF_REPORTS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('GF_REPORTS_PLUGIN_PATH', plugin_dir_path(__FILE__));
 
-// Hook into WordPress admin menu
-add_action('admin_menu', 'gf_reports_add_menu');
+// Hook into WordPress admin menu with proper timing
+add_action('admin_menu', 'gf_reports_add_menu', 99);
+
+// Fallback: Try again after Gravity Forms has loaded
+add_action('admin_init', 'gf_reports_add_menu_fallback');
+
+// Debug: Check if menu was added (only in debug mode)
+if (defined('WP_DEBUG') && WP_DEBUG) {
+    add_action('admin_footer', 'gf_reports_debug_menu');
+}
 
 // Enqueue admin scripts and styles
 add_action('admin_enqueue_scripts', 'gf_reports_enqueue_scripts');
@@ -26,14 +34,80 @@ add_action('admin_enqueue_scripts', 'gf_reports_enqueue_scripts');
  * Add the Reports submenu under Forms
  */
 function gf_reports_add_menu() {
+    // Check if Gravity Forms is active
+    if (!class_exists('GFFormsModel')) {
+        return;
+    }
+    
+    // Check if we're in admin
+    if (!is_admin()) {
+        return;
+    }
+    
+    // Add the submenu page with a more basic capability
     add_submenu_page(
         'gf_edit_forms',                    // Parent slug
         'Reports',                          // Page title
         'Reports',                          // Menu title
-        'gravityforms_view_entries',        // Capability
+        'manage_options',                   // Capability - changed to basic WordPress capability
         'gf-reports',                       // Menu slug
         'gf_reports_render_page'            // Callback
     );
+}
+
+/**
+ * Fallback method to add menu if primary method fails
+ */
+function gf_reports_add_menu_fallback() {
+    // Only run if the primary method didn't work
+    global $submenu;
+    
+    // Check if Gravity Forms is active
+    if (!class_exists('GFFormsModel')) {
+        return;
+    }
+    
+    // Check if we're in admin
+    if (!is_admin()) {
+        return;
+    }
+    
+    // Check if our menu already exists
+    if (isset($submenu['gf_edit_forms'])) {
+        foreach ($submenu['gf_edit_forms'] as $item) {
+            if ($item[2] === 'gf-reports') {
+                return; // Menu already exists
+            }
+        }
+    }
+    
+    // Add the submenu page as fallback with basic capability
+    add_submenu_page(
+        'gf_edit_forms',                    // Parent slug
+        'Reports',                          // Page title
+        'Reports',                          // Menu title
+        'manage_options',                   // Capability - changed to basic WordPress capability
+        'gf-reports',                       // Menu slug
+        'gf_reports_render_page'            // Callback
+    );
+}
+
+/**
+ * Debug function to check if menu was added (only in debug mode)
+ */
+function gf_reports_debug_menu() {
+    global $submenu;
+    
+    echo '<!-- GF Reports Debug: ';
+    if (isset($submenu['gf_edit_forms'])) {
+        echo 'Gravity Forms menu exists with ' . count($submenu['gf_edit_forms']) . ' items. ';
+        foreach ($submenu['gf_edit_forms'] as $item) {
+            echo 'Item: ' . $item[0] . ' (slug: ' . $item[2] . ') ';
+        }
+    } else {
+        echo 'Gravity Forms menu does not exist. ';
+    }
+    echo '-->';
 }
 
 /**
@@ -62,6 +136,11 @@ function gf_reports_enqueue_scripts($hook) {
  * Render the main reports page
  */
 function gf_reports_render_page() {
+    // Check user capabilities
+    if (!current_user_can('manage_options')) {
+        wp_die(__('You do not have sufficient permissions to access this page.'));
+    }
+    
     if (!class_exists('GFFormsModel')) {
         echo '<div class="notice notice-error"><p>Gravity Forms is not active. Please install and activate Gravity Forms to use this add-on.</p></div>';
         return;
