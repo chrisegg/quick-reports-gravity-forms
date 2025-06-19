@@ -169,6 +169,19 @@ function gf_reports_render_page() {
                     </select>
                 </div>
                 <div class="alignleft actions">
+                    <label for="compare_form_id" class="screen-reader-text">Compare With</label>
+                    <select name="compare_form_id" id="compare_form_id">
+                        <option value="">Compare With...</option>
+                        <?php foreach ($forms as $form): ?>
+                            <?php if ($form['id'] != $selected_form): ?>
+                                <option value="<?php echo esc_attr($form['id']); ?>" <?php selected(isset($_GET['compare_form_id']) ? intval($_GET['compare_form_id']) : '', $form['id']); ?>>
+                                    <?php echo esc_html($form['title']); ?>
+                                </option>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="alignleft actions">
                     <label for="start_date" class="screen-reader-text">Start Date</label>
                     <input type="date" name="start" id="start_date" value="<?php echo esc_attr($start_date); ?>">
                     <label for="end_date" class="screen-reader-text">End Date</label>
@@ -182,7 +195,9 @@ function gf_reports_render_page() {
                 <br class="clear">
             </div>
         </form>
-
+        <?php
+        $compare_form = isset($_GET['compare_form_id']) ? intval($_GET['compare_form_id']) : 0;
+        ?>
         <?php if ($selected_form): ?>
             <hr>
             <!-- Report Results -->
@@ -195,12 +210,10 @@ function gf_reports_render_page() {
                 if ($end_date) {
                     $search_criteria['end_date'] = $end_date . ' 23:59:59';
                 }
-
+                // Primary form stats
                 $entry_count = GFAPI::count_entries($selected_form, $search_criteria);
                 $entries = GFAPI::get_entries($selected_form, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
                 $form = GFAPI::get_form($selected_form);
-
-                // Revenue calculation
                 $product_fields = array();
                 foreach ($form['fields'] as $field) {
                     if (isset($field['type']) && $field['type'] === 'product') {
@@ -217,7 +230,6 @@ function gf_reports_render_page() {
                             } elseif (is_array($val) && isset($val['price'])) {
                                 $total_revenue += floatval($val['price']);
                             } elseif (is_string($val)) {
-                                // Try to extract price from string (e.g., "$10.00")
                                 if (preg_match('/([\d\.,]+)/', $val, $matches)) {
                                     $total_revenue += floatval(str_replace(',', '', $matches[1]));
                                 }
@@ -225,10 +237,46 @@ function gf_reports_render_page() {
                         }
                     }
                 }
+                // Comparison form stats
+                $compare_stats = null;
+                if ($compare_form) {
+                    $compare_entry_count = GFAPI::count_entries($compare_form, $search_criteria);
+                    $compare_entries = GFAPI::get_entries($compare_form, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
+                    $compare_form_obj = GFAPI::get_form($compare_form);
+                    $compare_product_fields = array();
+                    foreach ($compare_form_obj['fields'] as $field) {
+                        if (isset($field['type']) && $field['type'] === 'product') {
+                            $compare_product_fields[] = $field['id'];
+                        }
+                    }
+                    $compare_total_revenue = 0;
+                    if (!empty($compare_product_fields)) {
+                        foreach ($compare_entries as $entry) {
+                            foreach ($compare_product_fields as $pid) {
+                                $val = rgar($entry, $pid);
+                                if (is_numeric($val)) {
+                                    $compare_total_revenue += floatval($val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $compare_total_revenue += floatval($val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    $compare_stats = array(
+                        'entry_count' => $compare_entry_count,
+                        'form_title' => $compare_form_obj['title'],
+                        'total_revenue' => !empty($compare_product_fields) ? $compare_total_revenue : null
+                    );
+                }
                 ?>
                 <table class="wp-list-table widefat fixed striped report-summary-table">
                     <thead>
                         <tr>
+                            <th></th>
                             <th>Total Entries</th>
                             <th>Date Range</th>
                             <th>Form</th>
@@ -237,11 +285,21 @@ function gf_reports_render_page() {
                     </thead>
                     <tbody>
                         <tr>
+                            <th><?php echo esc_html($form['title']); ?></th>
                             <td><?php echo number_format($entry_count); ?></td>
                             <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
                             <td><?php echo esc_html($form['title']); ?></td>
                             <td><?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?></td>
                         </tr>
+                        <?php if ($compare_stats): ?>
+                        <tr>
+                            <th><?php echo esc_html($compare_stats['form_title']); ?></th>
+                            <td><?php echo number_format($compare_stats['entry_count']); ?></td>
+                            <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
+                            <td><?php echo esc_html($compare_stats['form_title']); ?></td>
+                            <td><?php echo ($compare_stats['total_revenue'] !== null) ? ('$' . number_format($compare_stats['total_revenue'], 2)) : 'N/A'; ?></td>
+                        </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
                 <!-- Chart Container -->
@@ -249,49 +307,20 @@ function gf_reports_render_page() {
                     <h3>Entries Over Time</h3>
                     <canvas id="entriesChart" width="400" height="200"></canvas>
                 </div>
-                <!-- Recent Entries Table -->
-                <?php if (!empty($entries)): ?>
-                <div class="recent-entries">
-                    <h3>Recent Entries (Last 10)</h3>
-                    <table class="wp-list-table widefat fixed striped">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Entry ID</th>
-                                <?php foreach ($form['fields'] as $field): ?>
-                                    <?php if ($field['type'] !== 'section' && $field['type'] !== 'html'): ?>
-                                        <th><?php echo esc_html($field['label']); ?></th>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php 
-                            $recent_entries = array_slice($entries, 0, 10);
-                            foreach ($recent_entries as $entry): 
-                            ?>
-                            <tr>
-                                <td><?php echo date('M j, Y g:i A', strtotime($entry['date_created'])); ?></td>
-                                <td><?php echo $entry['id']; ?></td>
-                                <?php foreach ($form['fields'] as $field): ?>
-                                    <?php if ($field['type'] !== 'section' && $field['type'] !== 'html'): ?>
-                                        <td><?php echo esc_html(rgar($entry, $field['id'])); ?></td>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php endif; ?>
-            </div>
-            <script>
+                <script>
                 // Pass data to JavaScript for chart
                 var chartData = {
                     labels: <?php echo json_encode(array_keys(gf_reports_get_daily_entries($selected_form, $start_date, $end_date))); ?>,
                     data: <?php echo json_encode(array_values(gf_reports_get_daily_entries($selected_form, $start_date, $end_date))); ?>
                 };
-            </script>
+                <?php if ($compare_form): ?>
+                var compareChartData = {
+                    labels: chartData.labels,
+                    data: <?php echo json_encode(array_values(gf_reports_get_daily_entries($compare_form, $start_date, $end_date))); ?>
+                };
+                <?php endif; ?>
+                </script>
+            </div>
         <?php endif; ?>
     </div>
     <?php
