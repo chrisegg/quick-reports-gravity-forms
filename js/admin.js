@@ -249,6 +249,7 @@ jQuery(document).ready(function($) {
         var formId = $('#form_id').val();
         var startDate = $('#start_date').val();
         var endDate = $('#end_date').val();
+        var compareFormId = $('#compare_form_id').val();
         
         if (!formId) {
             showNotice('Please select a form to export.', 'error');
@@ -267,6 +268,11 @@ jQuery(document).ready(function($) {
         formData.append('form_id', formId);
         formData.append('start_date', startDate);
         formData.append('end_date', endDate);
+        
+        // Add comparison form ID if selected
+        if (compareFormId) {
+            formData.append('compare_form_id', compareFormId);
+        }
 
         // For PDF export, include the chart as an image
         if (type === 'pdf' && window.currentChart) {
