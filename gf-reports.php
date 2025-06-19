@@ -618,54 +618,108 @@ function gf_reports_get_daily_entries($form_id, $start_date, $end_date) {
 add_action('wp_ajax_gf_reports_export_csv', 'gf_reports_export_csv');
 
 function gf_reports_export_csv() {
-    check_ajax_referer('gf_reports_nonce', 'nonce');
-    
-    if (!current_user_can('gravityforms_view_entries')) {
-        wp_die('Unauthorized');
-    }
-    
-    $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
-    $start_date = sanitize_text_field($_POST['start_date']);
-    $end_date = sanitize_text_field($_POST['end_date']);
-    
-    $search_criteria = array('status' => 'active');
-    if ($start_date) {
-        $search_criteria['start_date'] = $start_date . ' 00:00:00';
-    }
-    if ($end_date) {
-        $search_criteria['end_date'] = $end_date . ' 23:59:59';
-    }
-
-    // Set headers for CSV download
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="gf-reports-' . $form_id . '-' . date('Y-m-d') . '.csv"');
-    
-    $output = fopen('php://output', 'w');
-
-    // Write report summary section
-    fputcsv($output, array('Report Summary'));
-    fputcsv($output, array('Date Range:', date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))));
-    fputcsv($output, array('')); // Empty line for spacing
-
-    if ($form_id === 'all') {
-        // Export data for all forms
-        $forms = GFAPI::get_forms();
+    try {
+        check_ajax_referer('gf_reports_nonce', 'nonce');
         
-        // Write summary headers
-        fputcsv($output, array('Form', 'Total Entries', 'Average Per Day', 'Total Revenue'));
+        if (!current_user_can('gravityforms_view_entries')) {
+            wp_die('Unauthorized');
+        }
         
-        $total_entries = 0;
-        $total_revenue = 0;
+        $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
+        $start_date = sanitize_text_field($_POST['start_date']);
+        $end_date = sanitize_text_field($_POST['end_date']);
         
-        foreach ($forms as $form) {
-            $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
-            $entries = GFAPI::get_entries($form['id'], $search_criteria);
-            $daily_entries = gf_reports_get_daily_entries($form['id'], $start_date, $end_date);
+        $search_criteria = array('status' => 'active');
+        if ($start_date) {
+            $search_criteria['start_date'] = $start_date . ' 00:00:00';
+        }
+        if ($end_date) {
+            $search_criteria['end_date'] = $end_date . ' 23:59:59';
+        }
+
+        // Clear any previous output
+        if (ob_get_length()) ob_clean();
+
+        // Set headers for CSV download
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="gf-reports-' . $form_id . '-' . date('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // Add UTF-8 BOM
+
+        // Write report summary section
+        fputcsv($output, array('Report Summary'));
+        fputcsv($output, array('Date Range:', date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))));
+        fputcsv($output, array('')); // Empty line for spacing
+
+        if ($form_id === 'all') {
+            // Export data for all forms
+            $forms = GFAPI::get_forms();
+            
+            // Write summary headers
+            fputcsv($output, array('Form', 'Total Entries', 'Average Per Day', 'Total Revenue'));
+            
+            $total_entries = 0;
+            $total_revenue = 0;
+            
+            foreach ($forms as $form) {
+                $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
+                $entries = GFAPI::get_entries($form['id'], $search_criteria);
+                $daily_entries = gf_reports_get_daily_entries($form['id'], $start_date, $end_date);
+                $days_count = count($daily_entries);
+                $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
+                
+                // Calculate revenue
+                $form_revenue = 0;
+                $product_fields = array();
+                foreach ($form['fields'] as $field) {
+                    if (isset($field['type']) && $field['type'] === 'product') {
+                        $product_fields[] = $field['id'];
+                    }
+                }
+                
+                if (!empty($product_fields) && !empty($entries)) {
+                    foreach ($entries as $entry) {
+                        foreach ($product_fields as $pid) {
+                            $val = rgar($entry, $pid);
+                            if (is_numeric($val)) {
+                                $form_revenue += floatval($val);
+                            }
+                        }
+                    }
+                }
+                
+                fputcsv($output, array(
+                    $form['title'],
+                    $entry_count,
+                    number_format($avg_per_day, 2),
+                    !empty($product_fields) ? '$' . number_format($form_revenue, 2) : 'N/A'
+                ));
+                
+                $total_entries += $entry_count;
+                $total_revenue += $form_revenue;
+            }
+            
+            // Write totals
+            fputcsv($output, array(''));
+            fputcsv($output, array(
+                'TOTAL',
+                $total_entries,
+                number_format($total_entries / $days_count, 2),
+                '$' . number_format($total_revenue, 2)
+            ));
+            
+        } else {
+            // Export data for single form
+            $form = GFAPI::get_form($form_id);
+            $entries = GFAPI::get_entries($form_id, $search_criteria);
+            $entry_count = count($entries);
+            $daily_entries = gf_reports_get_daily_entries($form_id, $start_date, $end_date);
             $days_count = count($daily_entries);
             $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
             
             // Calculate revenue
-            $form_revenue = 0;
+            $total_revenue = 0;
             $product_fields = array();
             foreach ($form['fields'] as $field) {
                 if (isset($field['type']) && $field['type'] === 'product') {
@@ -678,103 +732,60 @@ function gf_reports_export_csv() {
                     foreach ($product_fields as $pid) {
                         $val = rgar($entry, $pid);
                         if (is_numeric($val)) {
-                            $form_revenue += floatval($val);
+                            $total_revenue += floatval($val);
                         }
                     }
                 }
             }
-            
-            fputcsv($output, array(
-                $form['title'],
-                $entry_count,
-                number_format($avg_per_day, 2),
-                !empty($product_fields) ? '$' . number_format($form_revenue, 2) : 'N/A'
-            ));
-            
-            $total_entries += $entry_count;
-            $total_revenue += $form_revenue;
-        }
-        
-        // Write totals
-        fputcsv($output, array(''));
-        fputcsv($output, array(
-            'TOTAL',
-            $total_entries,
-            number_format($total_entries / $days_count, 2),
-            '$' . number_format($total_revenue, 2)
-        ));
-        
-    } else {
-        // Export data for single form
-        $form = GFAPI::get_form($form_id);
-        $entries = GFAPI::get_entries($form_id, $search_criteria);
-        $entry_count = GFAPI::count_entries($form_id, $search_criteria);
-        $daily_entries = gf_reports_get_daily_entries($form_id, $start_date, $end_date);
-        $days_count = count($daily_entries);
-        $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
-        
-        // Calculate revenue
-        $total_revenue = 0;
-        $product_fields = array();
-        foreach ($form['fields'] as $field) {
-            if (isset($field['type']) && $field['type'] === 'product') {
-                $product_fields[] = $field['id'];
-            }
-        }
-        
-        if (!empty($product_fields) && !empty($entries)) {
-            foreach ($entries as $entry) {
-                foreach ($product_fields as $pid) {
-                    $val = rgar($entry, $pid);
-                    if (is_numeric($val)) {
-                        $total_revenue += floatval($val);
-                    }
-                }
-            }
-        }
 
-        // Write summary data
-        fputcsv($output, array('Form:', $form['title']));
-        fputcsv($output, array('Total Entries:', $entry_count));
-        fputcsv($output, array('Average Per Day:', number_format($avg_per_day, 2)));
-        fputcsv($output, array('Total Revenue:', !empty($product_fields) ? '$' . number_format($total_revenue, 2) : 'N/A'));
-        fputcsv($output, array('')); // Empty line for spacing
+            // Write summary data
+            fputcsv($output, array('Form:', $form['title']));
+            fputcsv($output, array('Total Entries:', $entry_count));
+            fputcsv($output, array('Average Per Day:', number_format($avg_per_day, 2)));
+            fputcsv($output, array('Total Revenue:', !empty($product_fields) ? '$' . number_format($total_revenue, 2) : 'N/A'));
+            fputcsv($output, array('')); // Empty line for spacing
 
-        // Write daily breakdown
-        fputcsv($output, array('Daily Breakdown'));
-        fputcsv($output, array('Date', 'Entries'));
-        foreach ($daily_entries as $date => $count) {
-            fputcsv($output, array($date, $count));
-        }
-        
-        fputcsv($output, array('')); // Empty line for spacing
-        
-        // Write entry details
-        fputcsv($output, array('Entry Details'));
-        
-        // Get field headers
-        $headers = array('Entry ID', 'Date Created');
-        foreach ($form['fields'] as $field) {
-            if ($field['type'] !== 'section' && $field['type'] !== 'html') {
-                $headers[] = $field['label'];
+            // Write daily breakdown
+            fputcsv($output, array('Daily Breakdown'));
+            fputcsv($output, array('Date', 'Entries'));
+            foreach ($daily_entries as $date => $count) {
+                fputcsv($output, array($date, $count));
             }
-        }
-        fputcsv($output, $headers);
-        
-        // Write entry data
-        foreach ($entries as $entry) {
-            $row = array($entry['id'], $entry['date_created']);
+            
+            fputcsv($output, array('')); // Empty line for spacing
+            
+            // Write entry details
+            fputcsv($output, array('Entry Details'));
+            
+            // Get field headers
+            $headers = array('Entry ID', 'Date Created');
             foreach ($form['fields'] as $field) {
                 if ($field['type'] !== 'section' && $field['type'] !== 'html') {
-                    $row[] = rgar($entry, $field['id']);
+                    $headers[] = $field['label'];
                 }
             }
-            fputcsv($output, $row);
+            fputcsv($output, $headers);
+            
+            // Write entry data
+            foreach ($entries as $entry) {
+                $row = array($entry['id'], $entry['date_created']);
+                foreach ($form['fields'] as $field) {
+                    if ($field['type'] !== 'section' && $field['type'] !== 'html') {
+                        $row[] = rgar($entry, $field['id']);
+                    }
+                }
+                fputcsv($output, $row);
+            }
         }
+        
+        fclose($output);
+        exit;
+        
+    } catch (Exception $e) {
+        error_log('GF Reports Error: ' . $e->getMessage());
+        error_log('GF Reports Error Stack Trace: ' . $e->getTraceAsString());
+        wp_die('Error generating CSV: ' . $e->getMessage());
     }
-    
-    fclose($output);
-    exit;
 }
 
 /**
@@ -783,101 +794,203 @@ function gf_reports_export_csv() {
 add_action('wp_ajax_gf_reports_export_pdf', 'gf_reports_export_pdf');
 
 function gf_reports_export_pdf() {
-    check_ajax_referer('gf_reports_nonce', 'nonce');
-    
-    if (!current_user_can('gravityforms_view_entries')) {
-        wp_die('Unauthorized');
-    }
-    
-    // Check if DOMPDF is available
-    if (!class_exists('DOMPDF')) {
-        require_once GF_REPORTS_PLUGIN_DIR . 'vendor/dompdf/autoload.inc.php';
-    }
-    
-    $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
-    $start_date = sanitize_text_field($_POST['start_date']);
-    $end_date = sanitize_text_field($_POST['end_date']);
-    $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
-    
-    // Generate HTML content
-    $html = '<html><head><style>
-        body { font-family: Arial, sans-serif; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th, td { padding: 8px; border: 1px solid #ddd; }
-        th { background-color: #f5f5f5; }
-        h1, h2 { color: #333; }
-        .chart-container { margin: 20px 0; }
-    </style></head><body>';
-    
-    // Add report header
-    $html .= '<h1>Gravity Forms Report</h1>';
-    $html .= '<p>Date Range: ' . date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date)) . '</p>';
-    
-    // Add chart image if provided
-    if (!empty($chart_data)) {
-        $html .= '<div class="chart-container">';
-        $html .= '<img src="' . $chart_data . '" style="width: 100%; max-width: 800px;">';
-        $html .= '</div>';
-    }
-    
-    // Add report data (similar to CSV export but in HTML format)
-    if ($form_id === 'all') {
-        // All forms summary table
-        $html .= '<h2>All Forms Summary</h2>';
-        $html .= '<table><tr><th>Form</th><th>Total Entries</th><th>Average Per Day</th><th>Total Revenue</th></tr>';
+    try {
+        check_ajax_referer('gf_reports_nonce', 'nonce');
         
-        $forms = GFAPI::get_forms();
-        foreach ($forms as $form) {
-            $entry_count = GFAPI::count_entries($form['id'], array('status' => 'active'));
-            $daily_entries = gf_reports_get_daily_entries($form['id'], $start_date, $end_date);
-            $days_count = count($daily_entries);
-            $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
+        if (!current_user_can('gravityforms_view_entries')) {
+            wp_die('Unauthorized');
+        }
+        
+        // Check if DOMPDF is available
+        if (!class_exists('Dompdf\\Dompdf')) {
+            error_log('GF Reports Error: DOMPDF class not found');
+            wp_die('PDF generation library not available');
+        }
+        
+        $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
+        $start_date = sanitize_text_field($_POST['start_date']);
+        $end_date = sanitize_text_field($_POST['end_date']);
+        $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
+        
+        error_log('GF Reports Debug - Starting PDF generation');
+        error_log('GF Reports Debug - Form ID: ' . $form_id);
+        error_log('GF Reports Debug - Chart data length: ' . strlen($chart_data));
+        
+        // Generate HTML content
+        $html = '<html><head><style>
+            body { font-family: DejaVu Sans, sans-serif; margin: 20px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { padding: 8px; border: 1px solid #ddd; }
+            th { background-color: #f5f5f5; }
+            h1, h2 { color: #333; }
+            .chart-container { margin: 20px 0; text-align: center; }
+            img { max-width: 100%; height: auto; }
+        </style></head><body>';
+        
+        // Add report header
+        $html .= '<h1>Gravity Forms Report</h1>';
+        $html .= '<p>Date Range: ' . date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date)) . '</p>';
+        
+        // Add chart image if provided
+        if (!empty($chart_data)) {
+            $html .= '<div class="chart-container">';
+            $html .= '<img src="' . $chart_data . '">';
+            $html .= '</div>';
+        }
+        
+        // Add report data
+        if ($form_id === 'all') {
+            // All forms summary table
+            $html .= '<h2>All Forms Summary</h2>';
+            $html .= '<table><tr><th>Form</th><th>Total Entries</th><th>Average Per Day</th><th>Total Revenue</th></tr>';
             
+            $forms = GFAPI::get_forms();
+            $total_entries = 0;
+            $total_revenue = 0;
+            
+            foreach ($forms as $form) {
+                $search_criteria = array(
+                    'status' => 'active',
+                    'start_date' => $start_date . ' 00:00:00',
+                    'end_date' => $end_date . ' 23:59:59'
+                );
+                
+                $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
+                $daily_entries = gf_reports_get_daily_entries($form['id'], $start_date, $end_date);
+                $days_count = count($daily_entries);
+                $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
+                
+                // Calculate revenue
+                $entries = GFAPI::get_entries($form['id'], $search_criteria);
+                $form_revenue = 0;
+                $product_fields = array();
+                foreach ($form['fields'] as $field) {
+                    if (isset($field['type']) && $field['type'] === 'product') {
+                        $product_fields[] = $field['id'];
+                    }
+                }
+                
+                if (!empty($product_fields) && !empty($entries)) {
+                    foreach ($entries as $entry) {
+                        foreach ($product_fields as $pid) {
+                            $val = rgar($entry, $pid);
+                            if (is_numeric($val)) {
+                                $form_revenue += floatval($val);
+                            }
+                        }
+                    }
+                }
+                
+                $html .= sprintf(
+                    '<tr><td>%s</td><td>%d</td><td>%.2f</td><td>%s</td></tr>',
+                    esc_html($form['title']),
+                    $entry_count,
+                    $avg_per_day,
+                    !empty($product_fields) ? '$' . number_format($form_revenue, 2) : 'N/A'
+                );
+                
+                $total_entries += $entry_count;
+                $total_revenue += $form_revenue;
+            }
+            
+            // Add totals row
             $html .= sprintf(
-                '<tr><td>%s</td><td>%d</td><td>%.2f</td><td>%s</td></tr>',
-                esc_html($form['title']),
-                $entry_count,
-                $avg_per_day,
-                'N/A' // Revenue calculation omitted for brevity
+                '<tr style="font-weight: bold;"><td>TOTAL</td><td>%d</td><td>%.2f</td><td>$%s</td></tr>',
+                $total_entries,
+                $total_entries / $days_count,
+                number_format($total_revenue, 2)
             );
+            
+            $html .= '</table>';
+            
+        } else {
+            // Single form details
+            $form = GFAPI::get_form($form_id);
+            $search_criteria = array(
+                'status' => 'active',
+                'start_date' => $start_date . ' 00:00:00',
+                'end_date' => $end_date . ' 23:59:59'
+            );
+            
+            $entries = GFAPI::get_entries($form_id, $search_criteria);
+            $entry_count = count($entries);
+            $daily_entries = gf_reports_get_daily_entries($form_id, $start_date, $end_date);
+            
+            $html .= '<h2>' . esc_html($form['title']) . ' - Summary</h2>';
+            $html .= '<table>';
+            $html .= sprintf('<tr><td>Total Entries</td><td>%d</td></tr>', $entry_count);
+            $html .= sprintf('<tr><td>Average Per Day</td><td>%.2f</td></tr>', 
+                count($daily_entries) > 0 ? $entry_count / count($daily_entries) : 0
+            );
+            
+            // Calculate revenue if applicable
+            $total_revenue = 0;
+            $product_fields = array();
+            foreach ($form['fields'] as $field) {
+                if (isset($field['type']) && $field['type'] === 'product') {
+                    $product_fields[] = $field['id'];
+                }
+            }
+            
+            if (!empty($product_fields) && !empty($entries)) {
+                foreach ($entries as $entry) {
+                    foreach ($product_fields as $pid) {
+                        $val = rgar($entry, $pid);
+                        if (is_numeric($val)) {
+                            $total_revenue += floatval($val);
+                        }
+                    }
+                }
+                $html .= sprintf('<tr><td>Total Revenue</td><td>$%s</td></tr>', number_format($total_revenue, 2));
+            }
+            
+            $html .= '</table>';
+            
+            // Daily breakdown
+            $html .= '<h2>Daily Breakdown</h2>';
+            $html .= '<table><tr><th>Date</th><th>Entries</th></tr>';
+            
+            foreach ($daily_entries as $date => $count) {
+                $html .= sprintf('<tr><td>%s</td><td>%d</td></tr>', $date, $count);
+            }
+            
+            $html .= '</table>';
         }
         
-        $html .= '</table>';
-    } else {
-        // Single form details
-        $form = GFAPI::get_form($form_id);
-        $entries = GFAPI::get_entries($form_id, array('status' => 'active'));
-        $entry_count = count($entries);
+        $html .= '</body></html>';
         
-        $html .= '<h2>' . esc_html($form['title']) . ' - Summary</h2>';
-        $html .= '<table>';
-        $html .= '<tr><td>Total Entries</td><td>' . $entry_count . '</td></tr>';
-        $html .= '<tr><td>Average Per Day</td><td>' . number_format($entry_count / count(gf_reports_get_daily_entries($form_id, $start_date, $end_date)), 2) . '</td></tr>';
-        $html .= '</table>';
+        error_log('GF Reports Debug - HTML generated, length: ' . strlen($html));
         
-        // Daily breakdown
-        $html .= '<h2>Daily Breakdown</h2>';
-        $html .= '<table><tr><th>Date</th><th>Entries</th></tr>';
+        // Generate PDF
+        $dompdf = new \Dompdf\Dompdf();
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->loadHtml($html);
         
-        $daily_entries = gf_reports_get_daily_entries($form_id, $start_date, $end_date);
-        foreach ($daily_entries as $date => $count) {
-            $html .= sprintf('<tr><td>%s</td><td>%d</td></tr>', $date, $count);
-        }
+        error_log('GF Reports Debug - Starting PDF rendering');
+        $dompdf->render();
+        error_log('GF Reports Debug - PDF rendered');
         
-        $html .= '</table>';
+        // Get the PDF content
+        $pdf_content = $dompdf->output();
+        error_log('GF Reports Debug - PDF content length: ' . strlen($pdf_content));
+        
+        // Clear any previous output
+        if (ob_get_length()) ob_clean();
+        
+        // Set headers for PDF download
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="gf-reports-' . $form_id . '-' . date('Y-m-d') . '.pdf"');
+        header('Content-Length: ' . strlen($pdf_content));
+        header('Cache-Control: private, no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
+        
+        // Output PDF content
+        echo $pdf_content;
+        exit;
+        
+    } catch (Exception $e) {
+        error_log('GF Reports Error: ' . $e->getMessage());
+        error_log('GF Reports Error Stack Trace: ' . $e->getTraceAsString());
+        wp_die('Error generating PDF: ' . $e->getMessage());
     }
-    
-    $html .= '</body></html>';
-    
-    // Generate PDF
-    $dompdf = new \Dompdf\Dompdf();
-    $dompdf->loadHtml($html);
-    $dompdf->setPaper('A4', 'portrait');
-    $dompdf->render();
-    
-    // Output PDF
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="gf-reports-' . $form_id . '-' . date('Y-m-d') . '.pdf"');
-    echo $dompdf->output();
-    exit;
 }

@@ -3,7 +3,7 @@
         'name' => 'gravityforms/gf-reports',
         'pretty_version' => '2.x-dev',
         'version' => '2.9999999.9999999.9999999-dev',
-        'reference' => '4c604b31349ec9b2458359a08749277c83477a23',
+        'reference' => 'dc27e3c7c0e075bb81ab40377fd7e57b538bab28',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -22,7 +22,7 @@
         'gravityforms/gf-reports' => array(
             'pretty_version' => '2.x-dev',
             'version' => '2.9999999.9999999.9999999-dev',
-            'reference' => '4c604b31349ec9b2458359a08749277c83477a23',
+            'reference' => 'dc27e3c7c0e075bb81ab40377fd7e57b538bab28',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

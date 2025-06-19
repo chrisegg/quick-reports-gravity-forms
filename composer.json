@@ -1,0 +1,8 @@
+{
+    "name": "gravityforms/gf-reports",
+    "description": "Advanced reporting add-on for Gravity Forms",
+    "type": "wordpress-plugin",
+    "require": {
+        "dompdf/dompdf": "^2.0"
+    }
+} 

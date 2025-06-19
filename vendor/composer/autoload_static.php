@@ -16,10 +16,6 @@ class ComposerStaticInitba6cc24a4085658ff1e39e7f9ac38836
         array (
             'Masterminds\\' => 12,
         ),
-        'G' => 
-        array (
-            'GFReports\\' => 10,
-        ),
         'F' => 
         array (
             'FontLib\\' => 8,
@@ -42,10 +38,6 @@ class ComposerStaticInitba6cc24a4085658ff1e39e7f9ac38836
         'Masterminds\\' => 
         array (
             0 => __DIR__ . '/..' . '/masterminds/html5/src',
-        ),
-        'GFReports\\' => 
-        array (
-            0 => __DIR__ . '/../..' . '/src',
         ),
         'FontLib\\' => 
         array (
