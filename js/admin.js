@@ -181,7 +181,7 @@ jQuery(document).ready(function($) {
             console.log('GF Reports Debug - Labels:', labels);
             console.log('GF Reports Debug - Datasets:', datasets);
             
-            var chart = new Chart(ctx, {
+            window.currentChart = new Chart(ctx, {
                 type: chartType,
                 data: {
                     labels: labels,
@@ -254,7 +254,7 @@ jQuery(document).ready(function($) {
                 }
             });
             
-            console.log('GF Reports Debug - Chart created successfully:', chart);
+            console.log('GF Reports Debug - Chart created successfully:', window.currentChart);
             
         } catch (error) {
             console.error('GF Reports Debug - Error creating chart:', error);
@@ -454,6 +454,33 @@ jQuery(document).ready(function($) {
     // Remove loading state when page loads
     $(window).on('load', function() {
         $('.gf-reports-results').removeClass('gf-reports-loading');
+    });
+    
+    // Handle chart view change for "All Forms"
+    $('#chart_view').on('change', function() {
+        console.log('GF Reports Debug - Chart view changed to:', $(this).val());
+        
+        // Update the chart view variable
+        window.chartView = $(this).val();
+        
+        // Show loading state
+        $('#entriesChart').hide();
+        $('#chartjs-no-data').text('Updating chart view...').show();
+        
+        // Reinitialize chart with new view
+        if (typeof Chart !== 'undefined' && typeof window.chartData !== 'undefined') {
+            // Destroy existing chart if it exists
+            if (window.currentChart) {
+                window.currentChart.destroy();
+                window.currentChart = null;
+            }
+            
+            // Small delay to show the loading message
+            setTimeout(function() {
+                // Reinitialize chart
+                initializeChart();
+            }, 100);
+        }
     });
     
 }); 
