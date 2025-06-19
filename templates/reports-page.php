@@ -61,6 +61,20 @@ $end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-
                     <option value="per_day" <?php selected(isset($_GET['show_by']) ? $_GET['show_by'] : '', 'per_day'); ?>><?php _e('Per Day', 'gf-quickreports'); ?></option>
                 </select>
             </div>
+            <div class="alignleft actions">
+                <label for="date_preset" class="screen-reader-text"><?php _e('Date Preset', 'gf-quickreports'); ?></label>
+                <select name="date_preset" id="date_preset">
+                    <option value="custom"><?php _e('Custom Range', 'gf-quickreports'); ?></option>
+                    <option value="today"><?php _e('Today', 'gf-quickreports'); ?></option>
+                    <option value="yesterday"><?php _e('Yesterday', 'gf-quickreports'); ?></option>
+                    <option value="7days"><?php _e('Last 7 Days', 'gf-quickreports'); ?></option>
+                    <option value="30days"><?php _e('Last 30 Days', 'gf-quickreports'); ?></option>
+                    <option value="60days"><?php _e('Last 60 Days', 'gf-quickreports'); ?></option>
+                    <option value="90days"><?php _e('Last 90 Days', 'gf-quickreports'); ?></option>
+                    <option value="year_to_date"><?php _e('Year to Date', 'gf-quickreports'); ?></option>
+                    <option value="last_year"><?php _e('Last Year', 'gf-quickreports'); ?></option>
+                </select>
+            </div>
             <?php if ($selected_form === 'all'): ?>
             <div class="alignleft actions">
                 <label for="chart_view" class="screen-reader-text"><?php _e('Chart View', 'gf-quickreports'); ?></label>
@@ -70,11 +84,13 @@ $end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-
                 </select>
             </div>
             <?php endif; ?>
-            <div class="alignleft actions">
+            <div class="alignleft actions date-range-container">
                 <label for="start_date" class="screen-reader-text"><?php _e('Start Date', 'gf-quickreports'); ?></label>
                 <input type="date" name="start" id="start_date" value="<?php echo esc_attr($start_date); ?>">
                 <label for="end_date" class="screen-reader-text"><?php _e('End Date', 'gf-quickreports'); ?></label>
                 <input type="date" name="end" id="end_date" value="<?php echo esc_attr($end_date); ?>">
+            </div>
+            <div class="alignleft actions">
                 <input type="hidden" name="page" value="gf_quickreports">
                 <input type="submit" class="button" value="<?php _e('Generate Report', 'gf-quickreports'); ?>">
                 <?php if ($selected_form): ?>

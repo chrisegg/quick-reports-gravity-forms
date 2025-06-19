@@ -35,7 +35,24 @@ jQuery(document).ready(function($) {
         }
     });
     
-    // Date range presets
+    // Form selection change - update compare form options
+    $('#form_id').on('change', function() {
+        var selectedForm = $(this).val();
+        updateCompareFormOptions(selectedForm);
+        updateChartViewVisibility(selectedForm);
+    });
+    
+    // Date preset change
+    $('#date_preset').on('change', function() {
+        var preset = $(this).val();
+        if (preset !== 'custom') {
+            updateDateFields(preset);
+        } else {
+            showDateFields();
+        }
+    });
+    
+    // Date preset functionality
     addDatePresets();
     
     /**
@@ -304,65 +321,20 @@ jQuery(document).ready(function($) {
      * Add date range presets
      */
     function addDatePresets() {
-        var $filterRow = $('.filter-row').last();
-        var $presetsDiv = $('<div class="filter-row">');
-        var $presetsLabel = $('<label>Date Presets:</label>');
-        var $presetsSelect = $('<select id="date-presets">');
+        // Initialize compare form options on page load
+        var selectedForm = $('#form_id').val();
+        if (selectedForm) {
+            updateCompareFormOptions(selectedForm);
+            updateChartViewVisibility(selectedForm);
+        }
         
-        var presets = [
-            { label: 'Custom Range', value: 'custom' },
-            { label: 'Last 7 Days', value: '7days' },
-            { label: 'Last 30 Days', value: '30days' },
-            { label: 'Last 90 Days', value: '90days' },
-            { label: 'This Month', value: 'this-month' },
-            { label: 'Last Month', value: 'last-month' },
-            { label: 'This Year', value: 'this-year' }
-        ];
-        
-        presets.forEach(function(preset) {
-            $presetsSelect.append($('<option>', {
-                value: preset.value,
-                text: preset.label
-            }));
-        });
-        
-        $presetsDiv.append($presetsLabel).append($presetsSelect);
-        $filterRow.after($presetsDiv);
-        
-        // Handle preset changes
-        $presetsSelect.on('change', function() {
-            var preset = $(this).val();
-            var startDate = '';
-            var endDate = new Date().toISOString().split('T')[0];
-            
-            switch(preset) {
-                case '7days':
-                    startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    break;
-                case '30days':
-                    startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    break;
-                case '90days':
-                    startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    break;
-                case 'this-month':
-                    startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-                    break;
-                case 'last-month':
-                    var lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
-                    startDate = lastMonth.toISOString().split('T')[0];
-                    endDate = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString().split('T')[0];
-                    break;
-                case 'this-year':
-                    startDate = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
-                    break;
-                default:
-                    return; // Custom range - don't change dates
-            }
-            
-            $('#start_date').val(startDate);
-            $('#end_date').val(endDate);
-        });
+        // Initialize date preset if one is selected
+        var selectedPreset = $('#date_preset').val();
+        if (selectedPreset && selectedPreset !== 'custom') {
+            hideDateFields();
+        } else {
+            showDateFields();
+        }
     }
     
     /**
@@ -420,4 +392,98 @@ jQuery(document).ready(function($) {
     
     handleResponsiveTable();
     $(window).on('resize', handleResponsiveTable);
+    
+    /**
+     * Update compare form options via AJAX
+     */
+    function updateCompareFormOptions(selectedForm) {
+        if (!selectedForm || selectedForm === 'all') {
+            $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
+            return;
+        }
+        
+        $.ajax({
+            url: gf_quickreports_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'gf_quickreports_get_compare_forms',
+                nonce: gf_quickreports_ajax.nonce,
+                selected_form: selectedForm
+            },
+            success: function(response) {
+                if (response.success) {
+                    var $select = $('#compare_form_id');
+                    $select.html('<option value="">Compare With...</option>');
+                    
+                    response.data.options.forEach(function(option) {
+                        $select.append($('<option>', {
+                            value: option.value,
+                            text: option.label
+                        }));
+                    });
+                    
+                    $select.prop('disabled', false);
+                }
+            },
+            error: function() {
+                showNotice('Error loading compare form options.', 'error');
+            }
+        });
+    }
+    
+    /**
+     * Update chart view visibility based on form selection
+     */
+    function updateChartViewVisibility(selectedForm) {
+        var $chartViewContainer = $('#chart_view').closest('.alignleft');
+        if (selectedForm === 'all') {
+            $chartViewContainer.show();
+        } else {
+            $chartViewContainer.hide();
+        }
+    }
+    
+    /**
+     * Update date fields based on preset
+     */
+    function updateDateFields(preset) {
+        $.ajax({
+            url: gf_quickreports_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'gf_quickreports_get_date_presets',
+                nonce: gf_quickreports_ajax.nonce,
+                preset: preset
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#start_date').val(response.data.start_date);
+                    $('#end_date').val(response.data.end_date);
+                    
+                    if (preset === 'custom') {
+                        showDateFields();
+                    } else {
+                        hideDateFields();
+                    }
+                }
+            },
+            error: function() {
+                showNotice('Error loading date preset.', 'error');
+            }
+        });
+    }
+    
+    /**
+     * Show date input fields
+     */
+    function showDateFields() {
+        $('.date-range-container').removeClass('hidden').show();
+    }
+    
+    /**
+     * Hide date input fields
+     */
+    function hideDateFields() {
+        $('.date-range-container').addClass('hidden');
+    }
 }); 
