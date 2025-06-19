@@ -1,5 +1,5 @@
 /**
- * Gravity Forms Reports Admin JavaScript
+ * Gravity Forms Quick Reports Admin JavaScript
  */
 
 jQuery(document).ready(function($) {
@@ -17,7 +17,7 @@ jQuery(document).ready(function($) {
     });
     
     // Form validation
-    $('.gf-reports-form').on('submit', function(e) {
+    $('.gf-quickreports-form').on('submit', function(e) {
         var formId = $('#form_id').val();
         var startDate = $('#start_date').val();
         var endDate = $('#end_date').val();
@@ -228,8 +228,8 @@ jQuery(document).ready(function($) {
         
         // Create form data for AJAX
         var formData = new FormData();
-        formData.append('action', 'gf_reports_export_' + type);
-        formData.append('nonce', gf_reports_ajax.nonce);
+        formData.append('action', 'gf_quickreports_export_' + type);
+        formData.append('nonce', gf_quickreports_ajax.nonce);
         formData.append('form_id', formId);
         formData.append('start_date', startDate);
         formData.append('end_date', endDate);
@@ -249,7 +249,7 @@ jQuery(document).ready(function($) {
         
         // Make AJAX request
         $.ajax({
-            url: gf_reports_ajax.ajax_url,
+            url: gf_quickreports_ajax.ajax_url,
             type: 'POST',
             data: formData,
             processData: false,
@@ -273,7 +273,7 @@ jQuery(document).ready(function($) {
                     var url = window.URL.createObjectURL(blob);
                     var a = document.createElement('a');
                     a.href = url;
-                    a.download = 'gf-reports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.' + type;
+                    a.download = 'gf-quickreports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.' + type;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -369,7 +369,7 @@ jQuery(document).ready(function($) {
      * Show notice messages
      */
     function showNotice(message, type) {
-        var $notice = $('<div class="gf-reports-notice ' + type + '">' + message + '</div>');
+        var $notice = $('<div class="gf-quickreports-notice ' + type + '">' + message + '</div>');
         $('.wrap h1').after($notice);
         
         setTimeout(function() {
@@ -394,7 +394,7 @@ jQuery(document).ready(function($) {
         // Ctrl/Cmd + Enter to submit form
         if ((e.ctrlKey || e.metaKey) && e.keyCode === 13) {
             e.preventDefault();
-            $('.gf-reports-form').submit();
+            $('.gf-quickreports-form').submit();
         }
         
         // Ctrl/Cmd + E to export CSV

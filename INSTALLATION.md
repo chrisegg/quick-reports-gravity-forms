@@ -1,26 +1,119 @@
-# Installation & Troubleshooting Guide
+# Quick Reports for Gravity Forms - Installation Guide
 
-## Quick Installation
+## Prerequisites
 
-1. **Upload the plugin** to `/wp-content/plugins/gf-reports/`
-2. **Activate** the plugin in WordPress admin
-3. **Navigate** to **Forms > Reports** in your dashboard
+Before installing the plugin, ensure you have:
 
-## If the Menu Doesn't Appear
+- WordPress 5.0 or higher
+- PHP 7.2 or higher
+- Gravity Forms plugin (any license)
+- Composer (for PDF export functionality)
 
-### Step 1: Check Gravity Forms
-- Ensure Gravity Forms is **installed and activated**
-- Verify you have a **valid Gravity Forms license**
-- Check that you can see the **Forms** menu in your WordPress admin
+## Installation Steps
 
-### Step 2: Check User Permissions
-- Make sure you're logged in as an **administrator**
-- The plugin requires `manage_options` capability
-- Try logging in as a different admin user
+### Step 1: Download and Extract
 
-### Step 3: Debug Mode
-Enable WordPress debug mode to see detailed information:
+1. Download the plugin files
+2. Extract the ZIP file to your local machine
+3. Ensure the folder structure looks like this:
+   ```
+   gf-quickreports/
+   ├── gf-reports.php
+   ├── composer.json
+   ├── css/
+   │   └── admin.css
+   ├── js/
+   │   └── admin.js
+   ├── templates/
+   │   └── reports-page.php
+   └── vendor/ (will be created after composer install)
+   ```
 
+### Step 2: Install Dependencies
+
+1. Open terminal/command prompt
+2. Navigate to the plugin directory:
+   ```bash
+   cd /path/to/wp-content/plugins/gf-quickreports
+   ```
+3. Install PHP dependencies:
+   ```bash
+   composer install
+   ```
+
+### Step 3: Upload to WordPress
+
+1. Upload the entire `gf-quickreports` folder to your `/wp-content/plugins/` directory
+2. Ensure the plugin folder has proper permissions (755 for directories, 644 for files)
+
+### Step 4: Activate the Plugin
+
+1. Log in to your WordPress admin dashboard
+2. Go to **Plugins > Installed Plugins**
+3. Find "Quick Reports for Gravity Forms" in the list
+4. Click **Activate**
+
+### Step 5: Verify Installation
+
+1. Navigate to **Forms > Quick Reports** in your WordPress admin
+2. You should see the Quick Reports interface
+3. Select a form and generate a report to test functionality
+
+## Configuration
+
+### File Permissions
+
+Ensure proper file permissions:
+```bash
+find /path/to/wp-content/plugins/gf-quickreports -type d -exec chmod 755 {} \;
+find /path/to/wp-content/plugins/gf-quickreports -type f -exec chmod 644 {} \;
+```
+
+### PHP Requirements
+
+The plugin requires:
+- PHP 7.2 or higher
+- GD extension (for chart image generation)
+- mbstring extension (for PDF generation)
+
+### Memory Limits
+
+For large exports, you may need to increase PHP memory limits:
+```php
+// Add to wp-config.php
+define('WP_MEMORY_LIMIT', '256M');
+```
+
+## Troubleshooting
+
+### Common Installation Issues
+
+1. **Composer not found**
+   - Install Composer from https://getcomposer.org/
+   - Ensure it's in your system PATH
+
+2. **Permission denied errors**
+   - Check file and directory permissions
+   - Ensure web server can read plugin files
+
+3. **Plugin not appearing in admin**
+   - Check for PHP errors in error logs
+   - Verify Gravity Forms is active
+   - Ensure plugin files are in correct location
+
+4. **Charts not displaying**
+   - Check browser console for JavaScript errors
+   - Verify Chart.js is loading from CDN
+   - Ensure no JavaScript conflicts
+
+5. **Export functionality not working**
+   - Check AJAX is working on your site
+   - Verify nonce verification is passing
+   - Check server memory limits
+
+### Debug Mode
+
+Enable WordPress debug mode for detailed error messages:
 ```php
 // Add to wp-config.php
 define('WP_DEBUG', true);
@@ -28,84 +121,46 @@ define('WP_DEBUG_LOG', true);
 define('WP_DEBUG_DISPLAY', false);
 ```
 
-Then check the debug log at `/wp-content/debug.log`
+### Testing
 
-### Step 4: Test with Debug Plugin
-1. Upload the `debug-menu.php` file to `/wp-content/plugins/`
-2. Activate the "GF Reports Debug" plugin
-3. Check the page source for debug comments
-4. Look for "Test Reports" in the Forms menu
+After installation, test the following:
+1. Form selection dropdown populates
+2. Date range filtering works
+3. Charts display correctly
+4. CSV export downloads properly
+5. PDF export generates files
+6. Responsive design works on mobile
 
-### Step 5: Check for Conflicts
-1. **Deactivate all plugins** except Gravity Forms and GF Reports
-2. **Switch to a default theme** (Twenty Twenty-Four)
-3. **Test if the menu appears**
-4. **Reactivate plugins one by one** to find the conflict
+## Updating
 
-## Common Issues
+To update the plugin:
 
-### "Gravity Forms is not active" Error
-- **Solution**: Install and activate Gravity Forms first
-- **Check**: Verify the plugin is properly installed
+1. Deactivate the plugin
+2. Replace plugin files with new version
+3. Run `composer install` to update dependencies
+4. Reactivate the plugin
 
-### Menu Appears but Page Shows Error
-- **Solution**: Check user permissions
-- **Check**: Ensure you have `manage_options` capability
+## Uninstallation
 
-### Chart Not Displaying
-- **Solution**: Check browser console for JavaScript errors
-- **Check**: Ensure JavaScript is enabled
+To completely remove the plugin:
 
-### CSV Export Not Working
-- **Solution**: Check server memory limits
-- **Check**: Verify AJAX is working on your site
-
-## Manual Menu Check
-
-You can manually check if the menu was registered by adding this code to your theme's `functions.php`:
-
-```php
-add_action('admin_footer', 'check_gf_reports_menu');
-
-function check_gf_reports_menu() {
-    global $submenu;
-    
-    if (isset($submenu['gf_edit_forms'])) {
-        echo '<div style="background: #fff; padding: 10px; margin: 10px; border: 1px solid #ccc;">';
-        echo '<h3>Gravity Forms Menu Items:</h3>';
-        foreach ($submenu['gf_edit_forms'] as $item) {
-            echo '<p>Menu: ' . $item[0] . ' | Slug: ' . $item[2] . '</p>';
-        }
-        echo '</div>';
-    } else {
-        echo '<div style="background: #fff; padding: 10px; margin: 10px; border: 1px solid #ccc;">';
-        echo '<h3>Gravity Forms menu not found!</h3>';
-        echo '</div>';
-    }
-}
-```
+1. Deactivate the plugin in WordPress admin
+2. Delete the plugin folder from `/wp-content/plugins/gf-quickreports/`
+3. The plugin will automatically clean up any database entries
 
 ## Support
 
-If you're still having issues:
+If you encounter issues during installation:
 
-1. **Check the debug log** for error messages
-2. **Test with the debug plugin** to isolate the issue
-3. **Verify Gravity Forms version** (requires 2.5+)
-4. **Check WordPress version** (requires 5.0+)
+1. Check the troubleshooting section above
+2. Review WordPress error logs
+3. Test with a default WordPress theme
+4. Disable other plugins to check for conflicts
+5. Contact support with detailed error information
 
-## File Structure Verification
+## Security Notes
 
-Ensure your plugin files are in the correct location:
-
-```
-/wp-content/plugins/gf-reports/
-├── gf-reports.php
-├── css/
-│   └── admin.css
-├── js/
-│   └── admin.js
-└── README.md
-```
-
-All files should be readable by the web server. 
+- Keep the plugin updated to the latest version
+- Use strong passwords for WordPress admin
+- Regularly backup your site
+- Monitor error logs for suspicious activity 

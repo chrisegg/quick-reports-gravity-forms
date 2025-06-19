@@ -6,7 +6,7 @@
  * Version: 1.0.0
  * Author: Chris Eggleston
  * Author URI: https://gravityranger.com
- * Text Domain: gf-reports
+ * Text Domain: gf-quickreports
  * Domain Path: /languages
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -30,14 +30,14 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('GF_REPORTS_VERSION', '1.0.0');
-define('GF_REPORTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('GF_REPORTS_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('GF_QUICKREPORTS_VERSION', '1.0.0');
+define('GF_QUICKREPORTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('GF_QUICKREPORTS_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 /**
  * Main plugin class
  */
-class GF_Reports {
+class GF_QuickReports {
     /**
      * Plugin instance
      */
@@ -58,17 +58,17 @@ class GF_Reports {
      */
     private function __construct() {
         add_action('init', array($this, 'init'));
-        add_action('admin_menu', array($this, 'add_menu_page'));
+        add_action('admin_menu', array($this, 'add_menu_page'), 999);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
-        add_action('wp_ajax_gf_reports_export_csv', array($this, 'handle_csv_export'));
-        add_action('wp_ajax_gf_reports_export_pdf', array($this, 'handle_pdf_export'));
+        add_action('wp_ajax_gf_quickreports_export_csv', array($this, 'handle_csv_export'));
+        add_action('wp_ajax_gf_quickreports_export_pdf', array($this, 'handle_pdf_export'));
     }
 
     /**
      * Initialize plugin
      */
     public function init() {
-        load_plugin_textdomain('gf-reports', false, dirname(plugin_basename(__FILE__)) . '/languages');
+        load_plugin_textdomain('gf-quickreports', false, dirname(plugin_basename(__FILE__)) . '/languages');
     }
 
     /**
@@ -77,10 +77,10 @@ class GF_Reports {
     public function add_menu_page() {
         add_submenu_page(
             'gf_edit_forms',
-            __('Reports', 'gf-reports'),
-            __('Reports', 'gf-reports'),
+            __('Quick Reports', 'gf-quickreports'),
+            __('Quick Reports', 'gf-quickreports'),
             'manage_options',
-            'gf_reports',
+            'gf_quickreports',
             array($this, 'render_reports_page')
         );
     }
@@ -89,7 +89,7 @@ class GF_Reports {
      * Enqueue assets
      */
     public function enqueue_assets($hook) {
-        if ($hook !== 'forms_page_gf_reports') {
+        if ($hook !== 'forms_page_gf_quickreports') {
             return;
         }
 
@@ -104,25 +104,25 @@ class GF_Reports {
 
         // Enqueue plugin scripts
         wp_enqueue_script(
-            'gf-reports-admin',
-            GF_REPORTS_PLUGIN_URL . 'js/admin.js',
+            'gf-quickreports-admin',
+            GF_QUICKREPORTS_PLUGIN_URL . 'js/admin.js',
             array('jquery', 'chartjs'),
-            GF_REPORTS_VERSION,
+            GF_QUICKREPORTS_VERSION,
             true
         );
 
         // Enqueue plugin styles
         wp_enqueue_style(
-            'gf-reports-admin',
-            GF_REPORTS_PLUGIN_URL . 'css/admin.css',
+            'gf-quickreports-admin',
+            GF_QUICKREPORTS_PLUGIN_URL . 'css/admin.css',
             array(),
-            GF_REPORTS_VERSION
+            GF_QUICKREPORTS_VERSION
         );
 
         // Localize script
-        wp_localize_script('gf-reports-admin', 'gf_reports_ajax', array(
+        wp_localize_script('gf-quickreports-admin', 'gf_quickreports_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('gf_reports_nonce')
+            'nonce' => wp_create_nonce('gf_quickreports_nonce')
         ));
     }
 
@@ -132,7 +132,7 @@ class GF_Reports {
     public function render_reports_page() {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(__('You do not have sufficient permissions to access this page.', 'gf-reports'));
+            wp_die(__('You do not have sufficient permissions to access this page.', 'gf-quickreports'));
         }
 
         // Get forms
@@ -173,7 +173,7 @@ class GF_Reports {
         $recent_entries = $this->get_recent_entries($form_id, 10);
 
         // Include template
-        include GF_REPORTS_PLUGIN_DIR . 'templates/reports-page.php';
+        include GF_QUICKREPORTS_PLUGIN_DIR . 'templates/reports-page.php';
     }
 
     /**
@@ -262,7 +262,7 @@ class GF_Reports {
      */
     public function handle_csv_export() {
         // Verify nonce
-        if (!check_ajax_referer('gf_reports_nonce', 'nonce', false)) {
+        if (!check_ajax_referer('gf_quickreports_nonce', 'nonce', false)) {
             wp_send_json_error('Invalid nonce');
         }
 
@@ -344,7 +344,7 @@ class GF_Reports {
      */
     public function handle_pdf_export() {
         // Verify nonce
-        if (!check_ajax_referer('gf_reports_nonce', 'nonce', false)) {
+        if (!check_ajax_referer('gf_quickreports_nonce', 'nonce', false)) {
             wp_send_json_error('Invalid nonce');
         }
 
@@ -384,7 +384,7 @@ class GF_Reports {
         $entries = GFAPI::get_entries($form_id, $search_criteria);
 
         // Create PDF
-        require_once GF_REPORTS_PLUGIN_DIR . 'vendor/autoload.php';
+        require_once GF_QUICKREPORTS_PLUGIN_DIR . 'vendor/autoload.php';
         $mpdf = new \Mpdf\Mpdf();
 
         // Add title
@@ -437,10 +437,10 @@ class GF_Reports {
         $mpdf->WriteHTML($table_html);
 
         // Output PDF
-        $mpdf->Output('gf-report.pdf', 'I');
+        $mpdf->Output('gf-quickreport.pdf', 'I');
         wp_die();
     }
 }
 
 // Initialize plugin
-add_action('plugins_loaded', array('GF_Reports', 'get_instance'));
+add_action('plugins_loaded', array('GF_QuickReports', 'get_instance'));

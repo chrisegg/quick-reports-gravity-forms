@@ -1,16 +1,16 @@
 /**
- * Gravity Forms Reports Admin Styles
+ * Gravity Forms Quick Reports Admin Styles
  */
 
 /* Container */
-.gf-reports-container {
+.gf-quickreports-container {
     max-width: 1200px;
     margin: 20px 0;
     padding: 0 20px;
 }
 
 /* Form Styles */
-.gf-reports-form {
+.gf-quickreports-form {
     background: #fff;
     padding: 20px;
     border: 1px solid #ddd;
@@ -41,7 +41,7 @@
 }
 
 /* Results Section */
-.gf-reports-results {
+.gf-quickreports-results {
     background: #fff;
     padding: 20px;
     border: 1px solid #ddd;
@@ -143,20 +143,20 @@
 }
 
 /* Notices */
-.gf-reports-notice {
+.gf-quickreports-notice {
     margin: 15px 0;
     padding: 10px 15px;
     border-radius: 4px;
     border-left: 4px solid;
 }
 
-.gf-reports-notice.success {
+.gf-quickreports-notice.success {
     background: #ecf7ed;
     border-left-color: #46b450;
     color: #1a4731;
 }
 
-.gf-reports-notice.error {
+.gf-quickreports-notice.error {
     background: #fbeaea;
     border-left-color: #dc3232;
     color: #8a1f11;
@@ -190,12 +190,12 @@
 
 /* Print Styles */
 @media print {
-    .gf-reports-form,
+    .gf-quickreports-form,
     .export-buttons {
         display: none;
     }
     
-    .gf-reports-results {
+    .gf-quickreports-results {
         border: none;
         padding: 0;
     }
