@@ -618,17 +618,16 @@ function gf_reports_get_daily_entries($form_id, $start_date, $end_date) {
 add_action('wp_ajax_gf_reports_export_csv', 'gf_reports_export_csv');
 
 function gf_reports_export_csv() {
-    $current_user = wp_get_current_user();
-    error_log('GF Reports Debug - AJAX user: ' . $current_user->user_login . ' (ID: ' . $current_user->ID . '), Roles: ' . implode(',', $current_user->roles));
-    error_log('GF Reports Debug - Has gravityforms_view_entries: ' . (current_user_can('gravityforms_view_entries') ? 'yes' : 'no'));
-    error_log('GF Reports Debug - Nonce received: ' . (isset($_POST['nonce']) ? $_POST['nonce'] : 'none'));
-
     try {
         error_log('GF Reports Debug - Starting CSV export');
         
         check_ajax_referer('gf_reports_nonce', 'nonce');
         
-        if (!current_user_can('gravityforms_view_entries')) {
+        $current_user = wp_get_current_user();
+        error_log('GF Reports Debug - AJAX user: ' . $current_user->user_login . ' (ID: ' . $current_user->ID . '), Roles: ' . implode(',', $current_user->roles));
+        
+        // Check if user is an admin or has GF permissions
+        if (!current_user_can('administrator') && !current_user_can('gravityforms_view_entries')) {
             error_log('GF Reports Error - Unauthorized access attempt');
             wp_die('Unauthorized');
         }
@@ -813,7 +812,11 @@ function gf_reports_export_pdf() {
         
         check_ajax_referer('gf_reports_nonce', 'nonce');
         
-        if (!current_user_can('gravityforms_view_entries')) {
+        $current_user = wp_get_current_user();
+        error_log('GF Reports Debug - AJAX user: ' . $current_user->user_login . ' (ID: ' . $current_user->ID . '), Roles: ' . implode(',', $current_user->roles));
+        
+        // Check if user is an admin or has GF permissions
+        if (!current_user_can('administrator') && !current_user_can('gravityforms_view_entries')) {
             error_log('GF Reports Error - Unauthorized access attempt');
             wp_die('Unauthorized');
         }
