@@ -1,3 +1,4 @@
+<?php
 /**
  * Plugin Name: Quick Reports for Gravity Forms
  * Plugin URI: https://gravityranger.com/plugins/gravity-forms-quick-reports-addon
