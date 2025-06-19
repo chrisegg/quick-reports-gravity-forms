@@ -154,13 +154,11 @@ function gf_reports_render_page() {
     ?>
     <div class="wrap">
         <h1>Gravity Forms Reports</h1>
-        
-        <!-- Report Filters -->
-        <div class="gf-reports-filters">
-            <form method="GET" class="gf-reports-form">
-                <input type="hidden" name="page" value="gf-reports">
-                <div class="filter-row">
-                    <label for="form_id">Select Form:</label>
+        <!-- WP Admin TableNav Filters Bar -->
+        <form method="GET">
+            <div class="tablenav top">
+                <div class="alignleft actions">
+                    <label for="form_id" class="screen-reader-text">Select form</label>
                     <select name="form_id" id="form_id">
                         <option value="">Select a form</option>
                         <?php foreach ($forms as $form): ?>
@@ -170,22 +168,20 @@ function gf_reports_render_page() {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="filter-row">
-                    <label for="start_date">Start Date:</label>
+                <div class="alignleft actions">
+                    <label for="start_date" class="screen-reader-text">Start Date</label>
                     <input type="date" name="start" id="start_date" value="<?php echo esc_attr($start_date); ?>">
-                </div>
-                <div class="filter-row">
-                    <label for="end_date">End Date:</label>
+                    <label for="end_date" class="screen-reader-text">End Date</label>
                     <input type="date" name="end" id="end_date" value="<?php echo esc_attr($end_date); ?>">
-                </div>
-                <div class="filter-row" style="min-width:120px;">
-                    <button type="submit" class="button button-primary">Generate Report</button>
+                    <input type="hidden" name="page" value="gf-reports">
+                    <input type="submit" class="button" value="Generate Report">
                     <?php if ($selected_form): ?>
-                        <button type="button" class="button button-secondary" id="export-csv">Export CSV</button>
+                        <button type="button" class="button" id="export-csv">Export CSV</button>
                     <?php endif; ?>
                 </div>
-            </form>
-        </div>
+                <br class="clear">
+            </div>
+        </form>
 
         <?php if ($selected_form): ?>
             <hr>
