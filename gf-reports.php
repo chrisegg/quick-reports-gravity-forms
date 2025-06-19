@@ -133,45 +133,6 @@ function gf_reports_enqueue_scripts($hook) {
 }
 
 /**
- * Calculate total revenue from form entries
- */
-function gf_reports_calculate_revenue($entries, $form) {
-    $total_revenue = 0;
-    $product_fields = array();
-    
-    // Get all product fields from the form
-    foreach ($form['fields'] as $field) {
-        if (isset($field['type']) && ($field['type'] === 'product' || $field['type'] === 'total')) {
-            $product_fields[] = $field['id'];
-        }
-    }
-    
-    if (empty($product_fields)) {
-        return null; // Return null if no product fields found
-    }
-    
-    foreach ($entries as $entry) {
-        foreach ($product_fields as $pid) {
-            $val = rgar($entry, $pid);
-            
-            // Handle different value formats
-            if (is_numeric($val)) {
-                $total_revenue += floatval($val);
-            } elseif (is_array($val) && isset($val['price'])) {
-                $total_revenue += floatval($val['price']);
-            } elseif (is_string($val)) {
-                // Extract numeric value from string (e.g. "$100.00" -> 100.00)
-                if (preg_match('/[\d,.]+/', str_replace(['$', ','], '', $val), $matches)) {
-                    $total_revenue += floatval($matches[0]);
-                }
-            }
-        }
-    }
-    
-    return $total_revenue;
-}
-
-/**
  * Render the main reports page
  */
 function gf_reports_render_page() {
@@ -257,127 +218,138 @@ function gf_reports_render_page() {
                 if ($end_date) {
                     $search_criteria['end_date'] = $end_date . ' 23:59:59';
                 }
-                
                 // Primary form stats
                 $entry_count = GFAPI::count_entries($selected_form, $search_criteria);
                 $entries = GFAPI::get_entries($selected_form, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
                 $form = GFAPI::get_form($selected_form);
-                $total_revenue = gf_reports_calculate_revenue($entries, $form);
-                
+                $product_fields = array();
+                foreach ($form['fields'] as $field) {
+                    if (isset($field['type']) && $field['type'] === 'product') {
+                        $product_fields[] = $field['id'];
+                    }
+                }
+                $total_revenue = 0;
+                if (!empty($product_fields)) {
+                    foreach ($entries as $entry) {
+                        foreach ($product_fields as $pid) {
+                            $val = rgar($entry, $pid);
+                            if (is_numeric($val)) {
+                                $total_revenue += floatval($val);
+                            } elseif (is_array($val) && isset($val['price'])) {
+                                $total_revenue += floatval($val['price']);
+                            } elseif (is_string($val)) {
+                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                    $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                }
+                            }
+                        }
+                    }
+                }
                 // Comparison form stats
                 $compare_stats = null;
                 if ($compare_form) {
                     $compare_entry_count = GFAPI::count_entries($compare_form, $search_criteria);
                     $compare_entries = GFAPI::get_entries($compare_form, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
                     $compare_form_obj = GFAPI::get_form($compare_form);
-                    $compare_total_revenue = gf_reports_calculate_revenue($compare_entries, $compare_form_obj);
-                    
+                    $compare_product_fields = array();
+                    foreach ($compare_form_obj['fields'] as $field) {
+                        if (isset($field['type']) && $field['type'] === 'product') {
+                            $compare_product_fields[] = $field['id'];
+                        }
+                    }
+                    $compare_total_revenue = 0;
+                    if (!empty($compare_product_fields)) {
+                        foreach ($compare_entries as $entry) {
+                            foreach ($compare_product_fields as $pid) {
+                                $val = rgar($entry, $pid);
+                                if (is_numeric($val)) {
+                                    $compare_total_revenue += floatval($val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $compare_total_revenue += floatval($val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    }
+                                }
+                            }
+                        }
+                    }
                     $compare_stats = array(
                         'entry_count' => $compare_entry_count,
                         'form_title' => $compare_form_obj['title'],
-                        'total_revenue' => $compare_total_revenue
+                        'total_revenue' => !empty($compare_product_fields) ? $compare_total_revenue : null
                     );
                 }
-                
                 // Calculate daily entries for chart and per-day summary
                 $daily_entries = gf_reports_get_daily_entries($selected_form, $start_date, $end_date);
                 $days_count = count($daily_entries);
                 $avg_per_day = $days_count > 0 ? array_sum($daily_entries) / $days_count : 0;
-                
                 // For compare form
                 $compare_daily_entries = $compare_form ? gf_reports_get_daily_entries($compare_form, $start_date, $end_date) : [];
                 $compare_days_count = count($compare_daily_entries);
                 $compare_avg_per_day = $compare_days_count > 0 ? array_sum($compare_daily_entries) / $compare_days_count : 0;
-                
-                // Calculate revenue per day
-                $daily_revenue = array();
-                $daily_compare_revenue = array();
-                
-                if ($total_revenue !== null) {
-                    $daily_revenue = gf_reports_get_daily_revenue($selected_form, $start_date, $end_date);
-                }
-                
-                if ($compare_form && $compare_total_revenue !== null) {
-                    $daily_compare_revenue = gf_reports_get_daily_revenue($compare_form, $start_date, $end_date);
-                }
-                
                 ?>
-                <div class="gf-reports-results">
-                    <!-- Summary Cards -->
-                    <div class="summary-grid">
-                        <div class="summary-card">
-                            <h3>Total Entries</h3>
-                            <div class="summary-value"><?php echo number_format($entry_count); ?></div>
+                <table class="wp-list-table widefat fixed striped report-summary-table">
+                    <thead>
+                        <tr>
+                            <th>Form</th>
                             <?php if ($show_by === 'per_day'): ?>
-                                <div class="summary-subtext">Avg: <?php echo number_format($avg_per_day, 1); ?> per day</div>
+                                <th>Entries Per Day</th>
+                            <?php else: ?>
+                                <th>Total Entries</th>
                             <?php endif; ?>
-                        </div>
-                        
-                        <?php if ($total_revenue !== null): ?>
-                        <div class="summary-card">
-                            <h3>Total Revenue</h3>
-                            <div class="summary-value">$<?php echo number_format($total_revenue, 2); ?></div>
-                            <?php if ($show_by === 'per_day' && $days_count > 0): ?>
-                                <div class="summary-subtext">Avg: $<?php echo number_format($total_revenue / $days_count, 2); ?> per day</div>
+                            <th>Date Range</th>
+                            <th>Total Revenue</th>
+                            <th>Show By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><?php echo esc_html($form['title']); ?></td>
+                            <?php if ($show_by === 'per_day'): ?>
+                                <td><?php echo number_format($avg_per_day, 2); ?></td>
+                            <?php else: ?>
+                                <td><?php echo number_format($entry_count); ?></td>
                             <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
-                        
+                            <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
+                            <td><?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?></td>
+                            <td><?php echo $show_by === 'per_day' ? 'Per Day' : 'Total'; ?></td>
+                        </tr>
                         <?php if ($compare_stats): ?>
-                        <div class="summary-card comparison">
-                            <h3>Comparison</h3>
-                            <div class="summary-value">
-                                <?php
-                                $entry_diff = $entry_count - $compare_stats['entry_count'];
-                                $entry_diff_percent = $compare_stats['entry_count'] > 0 ? 
-                                    ($entry_diff / $compare_stats['entry_count'] * 100) : 0;
-                                echo ($entry_diff >= 0 ? '+' : '') . number_format($entry_diff_percent, 1) . '%';
-                                ?>
-                            </div>
-                            <div class="summary-subtext">vs <?php echo esc_html($compare_stats['form_title']); ?></div>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <!-- Chart Container -->
-                    <div class="chart-container">
-                        <div class="chart-header">
-                            <h3>Entries Over Time</h3>
-                            <?php if ($total_revenue !== null): ?>
-                            <div class="chart-toggle">
-                                <label>
-                                    <input type="radio" name="chart_type" value="entries" checked> Entries
-                                </label>
-                                <label>
-                                    <input type="radio" name="chart_type" value="revenue"> Revenue
-                                </label>
-                            </div>
+                        <tr>
+                            <td><?php echo esc_html($compare_stats['form_title']); ?></td>
+                            <?php if ($show_by === 'per_day'): ?>
+                                <td><?php echo number_format($compare_avg_per_day, 2); ?></td>
+                            <?php else: ?>
+                                <td><?php echo number_format($compare_stats['entry_count']); ?></td>
                             <?php endif; ?>
-                        </div>
-                        <canvas id="entriesChart" width="400" height="200"></canvas>
-                        <canvas id="revenueChart" width="400" height="200" style="display: none;"></canvas>
-                        <div id="chartjs-no-data" style="display:none; color:#888; text-align:center; margin-top:20px;">
-                            No data for this period.
-                        </div>
-                    </div>
-
-                    <script>
-                    // Pass data to JavaScript for charts
-                    var chartMode = <?php echo json_encode($show_by); ?>;
-                    var chartData = {
-                        labels: <?php echo json_encode(array_keys($daily_entries)); ?>,
-                        entries: <?php echo json_encode(array_values($show_by === 'per_day' ? $daily_entries : [array_sum($daily_entries)])); ?>,
-                        revenue: <?php echo json_encode(array_values($show_by === 'per_day' ? $daily_revenue : [$total_revenue])); ?>
-                    };
-                    <?php if ($compare_form): ?>
-                    var compareChartData = {
-                        labels: chartData.labels,
-                        entries: <?php echo json_encode(array_values($show_by === 'per_day' ? $compare_daily_entries : [array_sum($compare_daily_entries)])); ?>,
-                        revenue: <?php echo json_encode(array_values($show_by === 'per_day' ? $daily_compare_revenue : [$compare_total_revenue])); ?>
-                    };
-                    <?php endif; ?>
-                    </script>
+                            <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
+                            <td><?php echo ($compare_stats['total_revenue'] !== null) ? ('$' . number_format($compare_stats['total_revenue'], 2)) : 'N/A'; ?></td>
+                            <td><?php echo $show_by === 'per_day' ? 'Per Day' : 'Total'; ?></td>
+                        </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+                <!-- Chart Container -->
+                <div class="chart-container">
+                    <h3>Entries Over Time</h3>
+                    <canvas id="entriesChart" width="400" height="200"></canvas>
+                    <div id="chartjs-no-data" style="display:none; color:#888; text-align:center; margin-top:20px;">No data for this period.</div>
                 </div>
+                <script>
+                // Pass data to JavaScript for chart
+                var chartMode = <?php echo json_encode($show_by); ?>;
+                var chartData = {
+                    labels: <?php echo json_encode(array_keys($daily_entries)); ?>,
+                    data: <?php echo json_encode(array_values($show_by === 'per_day' ? $daily_entries : [array_sum($daily_entries)])); ?>
+                };
+                <?php if ($compare_form): ?>
+                var compareChartData = {
+                    labels: chartData.labels,
+                    data: <?php echo json_encode(array_values($show_by === 'per_day' ? $compare_daily_entries : [array_sum($compare_daily_entries)])); ?>
+                };
+                <?php endif; ?>
+                </script>
             </div>
         <?php endif; ?>
     </div>
@@ -409,36 +381,6 @@ function gf_reports_get_daily_entries($form_id, $start_date, $end_date) {
     }
     
     return $daily_entries;
-}
-
-/**
- * Get daily revenue for chart
- */
-function gf_reports_get_daily_revenue($form_id, $start_date, $end_date) {
-    $daily_revenue = array();
-    
-    if (!$start_date || !$end_date) {
-        return $daily_revenue;
-    }
-
-    $current_date = $start_date;
-    $form = GFAPI::get_form($form_id);
-    
-    while (strtotime($current_date) <= strtotime($end_date)) {
-        $search_criteria = array(
-            'status' => 'active',
-            'start_date' => $current_date . ' 00:00:00',
-            'end_date' => $current_date . ' 23:59:59'
-        );
-        
-        $entries = GFAPI::get_entries($form_id, $search_criteria);
-        $revenue = gf_reports_calculate_revenue($entries, $form);
-        $daily_revenue[date('M j', strtotime($current_date))] = $revenue ?: 0;
-        
-        $current_date = date('Y-m-d', strtotime($current_date . ' +1 day'));
-    }
-    
-    return $daily_revenue;
 }
 
 /**
