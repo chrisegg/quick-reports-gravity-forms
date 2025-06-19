@@ -230,26 +230,24 @@ function gf_reports_render_page() {
                     }
                 }
                 ?>
-                <div class="report-summary">
-                    <table class="report-summary-table">
-                        <thead>
-                            <tr>
-                                <th>Total Entries</th>
-                                <th>Date Range</th>
-                                <th>Form</th>
-                                <th>Total Revenue</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><?php echo number_format($entry_count); ?></td>
-                                <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
-                                <td><?php echo esc_html($form['title']); ?></td>
-                                <td><?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                <table class="wp-list-table widefat fixed striped report-summary-table">
+                    <thead>
+                        <tr>
+                            <th>Total Entries</th>
+                            <th>Date Range</th>
+                            <th>Form</th>
+                            <th>Total Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><?php echo number_format($entry_count); ?></td>
+                            <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
+                            <td><?php echo esc_html($form['title']); ?></td>
+                            <td><?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?></td>
+                        </tr>
+                    </tbody>
+                </table>
                 <!-- Chart Container -->
                 <div class="chart-container">
                     <h3>Entries Over Time</h3>

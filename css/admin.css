@@ -1,42 +1,43 @@
 /* Gravity Forms Reports Admin Styles */
 
 .gf-reports-filters {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    background: none;
+    border: none;
+    box-shadow: none;
+    margin-bottom: 18px;
+    padding: 0;
 }
 
 .gf-reports-form {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr auto;
-    gap: 20px;
-    align-items: end;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 0;
 }
 
 .filter-row {
     display: flex;
     flex-direction: column;
-    gap: 5px;
     min-width: 0;
+    margin-bottom: 0;
 }
 
 .filter-row label {
     font-weight: 600;
     color: #23282d;
-    font-size: 13px;
+    font-size: 12px;
+    margin-bottom: 2px;
 }
 
 .filter-row select,
 .filter-row input[type="date"] {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border: 1px solid #8c8f94;
     border-radius: 4px;
     font-size: 14px;
-    line-height: 1.4;
-    min-height: 36px;
+    min-width: 120px;
+    min-height: 32px;
 }
 
 .filter-row select:focus,
@@ -47,8 +48,8 @@
 }
 
 .filter-row .button {
-    min-height: 36px;
-    padding: 8px 16px;
+    min-height: 32px;
+    padding: 6px 14px;
     margin-top: 0;
 }
 
@@ -183,13 +184,15 @@
 /* Responsive Design */
 @media (max-width: 900px) {
     .gf-reports-form {
-        grid-template-columns: 1fr 1fr;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 }
 
 @media (max-width: 600px) {
     .gf-reports-form {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
     }
 }
 
@@ -281,35 +284,39 @@
     }
 }
 
-/* --- REPORT SUMMARY TABLE --- */
+/* --- REPORT SUMMARY TABLE: Use WP List Table Classes --- */
 .report-summary-table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 24px;
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+.report-summary-table th,
+.report-summary-table td {
+    padding: 12px;
 }
 .report-summary-table th {
     background: #f6f7f7;
     border-bottom: 1px solid #c3c4c7;
-    padding: 12px;
     text-align: left;
     font-weight: 600;
     color: #23282d;
     font-size: 13px;
 }
 .report-summary-table td {
-    padding: 12px;
     border-bottom: 1px solid #f0f0f1;
     font-size: 15px;
     font-weight: 600;
     color: #2271b1;
-    background: #f8f9fa;
+    background: #fff;
 }
 .report-summary-table tr:last-child td {
     border-bottom: none;
+}
+.report-summary-table {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
 }
 
 /* Remove old stat card/grid styles for summary */
