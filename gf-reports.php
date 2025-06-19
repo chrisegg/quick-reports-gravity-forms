@@ -125,7 +125,7 @@ function gf_reports_enqueue_scripts($hook) {
         error_log('GF Reports Debug - Hook: ' . $hook);
     }
     
-    if ($hook !== 'gravity-forms_page_gf-reports') {
+    if ($hook !== 'forms_page_gf-reports') {
         return;
     }
 
