@@ -4,6 +4,11 @@
  * Add this to wp-config.php: define('WP_DEBUG', true); define('WP_DEBUG_LOG', true);
  */
 
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
 // Hook to add debug info to admin footer
 add_action('admin_footer', 'gf_reports_debug_chart_info');
 
@@ -88,5 +93,4 @@ function gf_reports_debug_chart_info() {
     });
     </script>
     <?php
-}
-?> 
+} 

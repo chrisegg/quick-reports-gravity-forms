@@ -23,10 +23,14 @@ add_action('admin_menu', 'gf_reports_add_menu', 99);
 add_action('admin_init', 'gf_reports_add_menu_fallback');
 
 // Debug: Check if menu was added (only in debug mode)
-if (defined('WP_DEBUG') && WP_DEBUG) {
+if (defined('WP_DEBUG') && WP_DEBUG && is_admin()) {
     add_action('admin_footer', 'gf_reports_debug_menu');
-    // Include chart debugging
-    include_once(GF_REPORTS_PLUGIN_PATH . 'debug-chart.php');
+    // Include chart debugging only when needed
+    add_action('admin_init', function() {
+        if (file_exists(GF_REPORTS_PLUGIN_PATH . 'debug-chart.php')) {
+            include_once(GF_REPORTS_PLUGIN_PATH . 'debug-chart.php');
+        }
+    });
 }
 
 // Enqueue admin scripts and styles
@@ -474,4 +478,4 @@ function gf_reports_export_csv() {
     
     fclose($output);
     exit;
-} 
+}
