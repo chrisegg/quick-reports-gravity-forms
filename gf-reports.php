@@ -163,7 +163,7 @@ function gf_reports_render_page() {
     }
 
     $forms = GFAPI::get_forms();
-    $selected_form = isset($_GET['form_id']) ? intval($_GET['form_id']) : 0;
+    $selected_form = isset($_GET['form_id']) ? $_GET['form_id'] : 0;
     $start_date = isset($_GET['start']) ? sanitize_text_field($_GET['start']) : date('Y-m-d', strtotime('-30 days'));
     $end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-d');
 
@@ -179,7 +179,7 @@ function gf_reports_render_page() {
                         <option value="">Select a form</option>
                         <option value="all" <?php selected($selected_form, 'all'); ?>>All Forms</option>
                         <?php foreach ($forms as $form): ?>
-                            <option value="<?php echo esc_attr($form['id']); ?>" <?php selected($form['id'], $selected_form); ?>>
+                            <option value="<?php echo esc_attr($form['id']); ?>" <?php selected($selected_form, $form['id']); ?>>
                                 <?php echo esc_html($form['title']); ?>
                             </option>
                         <?php endforeach; ?>
@@ -191,7 +191,7 @@ function gf_reports_render_page() {
                         <option value="">Compare With...</option>
                         <?php foreach ($forms as $form): ?>
                             <?php if ($form['id'] != $selected_form && $selected_form !== 'all'): ?>
-                                <option value="<?php echo esc_attr($form['id']); ?>" <?php selected(isset($_GET['compare_form_id']) ? intval($_GET['compare_form_id']) : '', $form['id']); ?>>
+                                <option value="<?php echo esc_attr($form['id']); ?>" <?php selected(isset($_GET['compare_form_id']) ? $_GET['compare_form_id'] : '', $form['id']); ?>>
                                     <?php echo esc_html($form['title']); ?>
                                 </option>
                             <?php endif; ?>
@@ -220,8 +220,13 @@ function gf_reports_render_page() {
             </div>
         </form>
         <?php
-        $compare_form = isset($_GET['compare_form_id']) ? intval($_GET['compare_form_id']) : 0;
+        $compare_form = isset($_GET['compare_form_id']) ? $_GET['compare_form_id'] : 0;
         $show_by = isset($_GET['show_by']) ? $_GET['show_by'] : 'total';
+        
+        // Debug: Log submitted values
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('GF Reports Debug - Submitted values: form_id=' . $selected_form . ', compare_form_id=' . $compare_form . ', show_by=' . $show_by . ', start=' . $start_date . ', end=' . $end_date);
+        }
         ?>
         <?php if ($selected_form): ?>
             <hr>
@@ -238,6 +243,11 @@ function gf_reports_render_page() {
                 
                 // Handle "All Forms" selection
                 if ($selected_form === 'all') {
+                    // Debug: Log that we're processing all forms
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('GF Reports Debug - Processing All Forms selection');
+                    }
+                    
                     // Aggregate data from all forms
                     $all_forms_data = array();
                     $total_entries_all_forms = 0;
@@ -317,7 +327,17 @@ function gf_reports_render_page() {
                         }
                     }
                     
+                    // Debug: Log aggregated data
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('GF Reports Debug - All Forms processed. Total entries: ' . $total_entries_all_forms . ', Total revenue: ' . $total_revenue_all_forms . ', Forms count: ' . count($all_forms_data));
+                    }
+                    
                 } else {
+                    // Debug: Log that we're processing single form
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('GF Reports Debug - Processing single form: ' . $selected_form);
+                    }
+                    
                     // Single form processing (existing code)
                     $entry_count = GFAPI::count_entries($selected_form, $search_criteria);
                     $entries = GFAPI::get_entries($selected_form, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
