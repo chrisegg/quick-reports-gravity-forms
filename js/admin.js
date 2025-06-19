@@ -4,44 +4,9 @@
 
 jQuery(document).ready(function($) {
     
-    // Debug: Log what data we have
-    console.log('GF Reports Debug - Chart data:', typeof window.chartData !== 'undefined' ? window.chartData : 'undefined');
-    console.log('GF Reports Debug - Compare data:', typeof window.compareChartData !== 'undefined' ? window.compareChartData : 'undefined');
-    console.log('GF Reports Debug - Chart mode:', typeof window.chartMode !== 'undefined' ? window.chartMode : 'undefined');
-    console.log('GF Reports Debug - Chart.js loaded:', typeof Chart !== 'undefined');
-    console.log('GF Reports Debug - jQuery loaded:', typeof $ !== 'undefined');
-    console.log('GF Reports Debug - Canvas element exists:', $('#entriesChart').length > 0);
-    
     // Initialize chart if data is available
     if (typeof window.chartData !== 'undefined') {
-        // Try multiple times to ensure Chart.js is loaded
-        var attempts = 0;
-        var maxAttempts = 5;
-        
-        function tryInitChart() {
-            attempts++;
-            console.log('GF Reports Debug - Chart init attempt:', attempts);
-            
-            if (typeof Chart !== 'undefined') {
-                initializeChart();
-            } else if (attempts < maxAttempts) {
-                // Wait and try again
-                setTimeout(tryInitChart, 500);
-            } else {
-                console.error('Chart.js failed to load after', maxAttempts, 'attempts');
-                $('#entriesChart').hide();
-                $('#chartjs-no-data').text('Chart library failed to load. Please refresh the page.').show();
-            }
-        }
-        
-        tryInitChart();
-    } else {
-        console.log('GF Reports Debug - No chart data available');
-        // Still show the no data message if canvas exists
-        if ($('#entriesChart').length > 0) {
-            $('#entriesChart').hide();
-            $('#chartjs-no-data').show();
-        }
+        initializeChart();
     }
     
     // Export functionality
@@ -73,28 +38,12 @@ jQuery(document).ready(function($) {
     // Date range presets
     addDatePresets();
     
-    // Auto-submit on form change (optional)
-    $('#form_id').on('change', function() {
-        if ($(this).val()) {
-            // Uncomment the line below to auto-submit when form is selected
-            // $('.gf-reports-form').submit();
-        }
-    });
-    
-    function formatFormLabel(label) {
-        // Remove extra spaces and trim
-        return label.replace(/\s+/g, ' ').trim();
-    }
-    
     /**
      * Initialize Chart.js for entries over time
      */
     function initializeChart() {
-        console.log('GF Reports Debug - Initializing chart...');
-        
         var canvas = document.getElementById('entriesChart');
         if (!canvas) {
-            console.error('GF Reports Debug - Canvas element not found');
             return;
         }
         
@@ -106,16 +55,13 @@ jQuery(document).ready(function($) {
             var chartData = window.chartData;
             var compareChartData = window.compareChartData;
 
-            console.log('GF Reports Debug - Mode:', mode);
-            console.log('GF Reports Debug - Chart data:', chartData);
-
             // Main form dataset
             if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
                 hasData = true;
                 var formLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                     formatFormLabel(window.selectedFormLabel) : 
                     formatFormLabel($('#form_id option:selected').text() || 'Form 1');
-                console.log('GF Reports Debug - Adding main dataset:', formLabel);
+                
                 datasets.push({
                     label: formLabel,
                     data: mode === 'total' ? [chartData.data.reduce((a,b)=>a+b,0)] : chartData.data,
@@ -135,7 +81,6 @@ jQuery(document).ready(function($) {
             // Individual forms datasets (for "All Forms" view)
             if (typeof window.individualFormsData !== 'undefined' && window.individualFormsData.length > 0 && 
                 typeof window.chartView !== 'undefined' && window.chartView === 'individual') {
-                console.log('GF Reports Debug - Adding individual forms datasets:', window.individualFormsData.length);
                 hasData = true;
                 
                 // Add each individual form as a separate dataset
@@ -153,7 +98,7 @@ jQuery(document).ready(function($) {
             if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
                 hasData = true;
                 var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Form 2');
-                console.log('GF Reports Debug - Adding compare dataset:', compareLabel);
+                
                 datasets.push({
                     label: compareLabel,
                     data: mode === 'total' ? [compareChartData.data.reduce((a,b)=>a+b,0)] : compareChartData.data,
@@ -172,7 +117,6 @@ jQuery(document).ready(function($) {
             
             // No data
             if (!hasData) {
-                console.log('GF Reports Debug - No data available for chart');
                 $('#entriesChart').hide();
                 $('#chartjs-no-data').show();
                 return;
@@ -184,10 +128,6 @@ jQuery(document).ready(function($) {
             // Chart type and labels
             var chartType = (mode === 'total') ? 'bar' : 'line';
             var labels = (mode === 'total') ? ['Total'] : (chartData.labels || []);
-            
-            console.log('GF Reports Debug - Chart type:', chartType);
-            console.log('GF Reports Debug - Labels:', labels);
-            console.log('GF Reports Debug - Datasets:', datasets);
             
             window.currentChart = new Chart(ctx, {
                 type: chartType,
@@ -262,30 +202,19 @@ jQuery(document).ready(function($) {
                 }
             });
             
-            console.log('GF Reports Debug - Chart created successfully:', window.currentChart);
-            
         } catch (error) {
-            console.error('GF Reports Debug - Error creating chart:', error);
             $('#entriesChart').hide();
             $('#chartjs-no-data').text('Error creating chart: ' + error.message).show();
         }
     }
     
     /**
-     * Export functionality
+     * Export report as CSV or PDF
      */
     function exportReport(type) {
-        console.log('GF Reports Debug - Starting export:', type);
         var formId = $('#form_id').val();
         var startDate = $('#start_date').val();
         var endDate = $('#end_date').val();
-        
-        console.log('GF Reports Debug - Export parameters:', {
-            formId: formId,
-            startDate: startDate,
-            endDate: endDate,
-            type: type
-        });
         
         if (!formId) {
             showNotice('Please select a form to export.', 'error');
@@ -308,17 +237,15 @@ jQuery(document).ready(function($) {
         // For PDF export, include the chart as an image
         if (type === 'pdf' && window.currentChart) {
             try {
-                console.log('GF Reports Debug - Adding chart to PDF export');
                 var chartCanvas = document.getElementById('entriesChart');
                 var chartImage = chartCanvas.toDataURL('image/png');
                 formData.append('chart_data', chartImage);
-                console.log('GF Reports Debug - Chart data length:', chartImage.length);
             } catch (e) {
-                console.error('GF Reports Debug - Failed to get chart image:', e);
+                showNotice('Error capturing chart for PDF. Please try again.', 'error');
+                $button.text(originalText).prop('disabled', false);
+                return;
             }
         }
-        
-        console.log('GF Reports Debug - Making AJAX request to:', gf_reports_ajax.ajax_url);
         
         // Make AJAX request
         $.ajax({
@@ -333,8 +260,6 @@ jQuery(document).ready(function($) {
                 return xhr;
             },
             success: function(response) {
-                console.log('GF Reports Debug - Export successful, response type:', typeof response);
-                
                 try {
                     // Create blob from response
                     var blob;
@@ -343,8 +268,6 @@ jQuery(document).ready(function($) {
                     } else {
                         blob = new Blob([response], { type: 'text/csv;charset=utf-8' });
                     }
-                    
-                    console.log('GF Reports Debug - Created blob, size:', blob.size);
                     
                     // Create and trigger download
                     var url = window.URL.createObjectURL(blob);
@@ -358,22 +281,23 @@ jQuery(document).ready(function($) {
                     
                     showNotice(type.toUpperCase() + ' export completed successfully!', 'success');
                 } catch (e) {
-                    console.error('GF Reports Debug - Error processing response:', e);
                     showNotice('Error processing ' + type.toUpperCase() + ' export response.', 'error');
                 }
             },
-            error: function(xhr, status, error) {
-                console.error('GF Reports Debug - Export error:', {
-                    status: status,
-                    error: error,
-                    response: xhr.responseText
-                });
-                showNotice('Export failed. Please check browser console for details.', 'error');
+            error: function() {
+                showNotice('Export failed. Please try again.', 'error');
             },
             complete: function() {
                 $button.text(originalText).prop('disabled', false);
             }
         });
+    }
+    
+    /**
+     * Format form label for chart display
+     */
+    function formatFormLabel(label) {
+        return label.replace(/\s+/g, ' ').trim();
     }
     
     /**
@@ -448,7 +372,6 @@ jQuery(document).ready(function($) {
         var $notice = $('<div class="gf-reports-notice ' + type + '">' + message + '</div>');
         $('.wrap h1').after($notice);
         
-        // Auto-remove after 5 seconds
         setTimeout(function() {
             $notice.fadeOut(function() {
                 $(this).remove();
@@ -456,9 +379,17 @@ jQuery(document).ready(function($) {
         }, 5000);
     }
     
-    /**
-     * Add keyboard shortcuts
-     */
+    // Handle chart view change for "All Forms"
+    $('#chart_view').on('change', function() {
+        window.chartView = $(this).val();
+        if (window.currentChart) {
+            window.currentChart.destroy();
+            window.currentChart = null;
+        }
+        initializeChart();
+    });
+    
+    // Add keyboard shortcuts
     $(document).on('keydown', function(e) {
         // Ctrl/Cmd + Enter to submit form
         if ((e.ctrlKey || e.metaKey) && e.keyCode === 13) {
@@ -475,16 +406,7 @@ jQuery(document).ready(function($) {
         }
     });
     
-    /**
-     * Add tooltips for better UX
-     */
-    $('[title]').tooltip({
-        position: { my: 'left+5 center', at: 'right center' }
-    });
-    
-    /**
-     * Responsive table handling
-     */
+    // Handle responsive table
     function handleResponsiveTable() {
         var $table = $('.recent-entries table');
         var $container = $('.recent-entries');
@@ -496,47 +418,6 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // Handle responsive table on load and resize
     handleResponsiveTable();
     $(window).on('resize', handleResponsiveTable);
-    
-    /**
-     * Add loading states
-     */
-    $('.gf-reports-form').on('submit', function() {
-        $('.gf-reports-results').addClass('gf-reports-loading');
-    });
-    
-    // Remove loading state when page loads
-    $(window).on('load', function() {
-        $('.gf-reports-results').removeClass('gf-reports-loading');
-    });
-    
-    // Handle chart view change for "All Forms"
-    $('#chart_view').on('change', function() {
-        console.log('GF Reports Debug - Chart view changed to:', $(this).val());
-        
-        // Update the chart view variable
-        window.chartView = $(this).val();
-        
-        // Show loading state
-        $('#entriesChart').hide();
-        $('#chartjs-no-data').text('Updating chart view...').show();
-        
-        // Reinitialize chart with new view
-        if (typeof Chart !== 'undefined' && typeof window.chartData !== 'undefined') {
-            // Destroy existing chart if it exists
-            if (window.currentChart) {
-                window.currentChart.destroy();
-                window.currentChart = null;
-            }
-            
-            // Small delay to show the loading message
-            setTimeout(function() {
-                // Reinitialize chart
-                initializeChart();
-            }, 100);
-        }
-    });
-    
 }); 
