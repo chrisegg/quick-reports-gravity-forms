@@ -10,17 +10,17 @@
 }
 
 .gf-reports-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    align-items: flex-end;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 20px;
+    align-items: end;
 }
 
 .filter-row {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    min-width: 200px;
+    min-width: 0;
 }
 
 .filter-row label {
@@ -47,9 +47,9 @@
 }
 
 .filter-row .button {
-    margin-top: 20px;
     min-height: 36px;
     padding: 8px 16px;
+    margin-top: 0;
 }
 
 /* Report Summary */
@@ -181,34 +181,15 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .gf-reports-form {
-        flex-direction: column;
-        align-items: stretch;
+        grid-template-columns: 1fr 1fr;
     }
-    
-    .filter-row {
-        min-width: auto;
-    }
-    
-    .summary-stats {
+}
+
+@media (max-width: 600px) {
+    .gf-reports-form {
         grid-template-columns: 1fr;
-    }
-    
-    .stat-card {
-        padding: 15px;
-    }
-    
-    .stat-number {
-        font-size: 28px;
-    }
-    
-    .recent-entries {
-        overflow-x: auto;
-    }
-    
-    .recent-entries table {
-        min-width: 600px;
     }
 }
 
@@ -298,4 +279,38 @@
         box-shadow: none;
         page-break-inside: avoid;
     }
-} 
+}
+
+/* --- REPORT SUMMARY TABLE --- */
+.report-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+.report-summary-table th {
+    background: #f6f7f7;
+    border-bottom: 1px solid #c3c4c7;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #23282d;
+    font-size: 13px;
+}
+.report-summary-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f1;
+    font-size: 15px;
+    font-weight: 600;
+    color: #2271b1;
+    background: #f8f9fa;
+}
+.report-summary-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Remove old stat card/grid styles for summary */
+.report-summary, .summary-stats, .stat-card { all: unset; } 

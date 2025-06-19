@@ -231,29 +231,24 @@ function gf_reports_render_page() {
                 }
                 ?>
                 <div class="report-summary">
-                    <h2>Report Summary</h2>
-                    <div class="summary-stats">
-                        <div class="stat-card">
-                            <h3>Total Entries</h3>
-                            <div class="stat-number"><?php echo number_format($entry_count); ?></div>
-                        </div>
-                        <?php if ($start_date && $end_date): ?>
-                        <div class="stat-card">
-                            <h3>Date Range</h3>
-                            <div class="stat-text"><?php echo date('M j, Y', strtotime($start_date)); ?> - <?php echo date('M j, Y', strtotime($end_date)); ?></div>
-                        </div>
-                        <?php endif; ?>
-                        <div class="stat-card">
-                            <h3>Form</h3>
-                            <div class="stat-text"><?php echo esc_html($form['title']); ?></div>
-                        </div>
-                        <div class="stat-card revenue">
-                            <h3>Total Revenue</h3>
-                            <div class="stat-number">
-                                <?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?>
-                            </div>
-                        </div>
-                    </div>
+                    <table class="report-summary-table">
+                        <thead>
+                            <tr>
+                                <th>Total Entries</th>
+                                <th>Date Range</th>
+                                <th>Form</th>
+                                <th>Total Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><?php echo number_format($entry_count); ?></td>
+                                <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
+                                <td><?php echo esc_html($form['title']); ?></td>
+                                <td><?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
                 <!-- Chart Container -->
                 <div class="chart-container">
