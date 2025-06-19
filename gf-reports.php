@@ -182,6 +182,13 @@ function gf_reports_render_page() {
                     </select>
                 </div>
                 <div class="alignleft actions">
+                    <label for="show_by" class="screen-reader-text">Show by</label>
+                    <select name="show_by" id="show_by">
+                        <option value="total" <?php selected(isset($_GET['show_by']) ? $_GET['show_by'] : 'total', 'total'); ?>>Total</option>
+                        <option value="per_day" <?php selected(isset($_GET['show_by']) ? $_GET['show_by'] : '', 'per_day'); ?>>Per Day</option>
+                    </select>
+                </div>
+                <div class="alignleft actions">
                     <label for="start_date" class="screen-reader-text">Start Date</label>
                     <input type="date" name="start" id="start_date" value="<?php echo esc_attr($start_date); ?>">
                     <label for="end_date" class="screen-reader-text">End Date</label>
@@ -197,6 +204,7 @@ function gf_reports_render_page() {
         </form>
         <?php
         $compare_form = isset($_GET['compare_form_id']) ? intval($_GET['compare_form_id']) : 0;
+        $show_by = isset($_GET['show_by']) ? $_GET['show_by'] : 'total';
         ?>
         <?php if ($selected_form): ?>
             <hr>
@@ -280,6 +288,7 @@ function gf_reports_render_page() {
                             <th>Total Entries</th>
                             <th>Date Range</th>
                             <th>Total Revenue</th>
+                            <th>Show By</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -288,6 +297,7 @@ function gf_reports_render_page() {
                             <td><?php echo number_format($entry_count); ?></td>
                             <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
                             <td><?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?></td>
+                            <td><?php echo $show_by === 'per_day' ? 'Per Day' : 'Total'; ?></td>
                         </tr>
                         <?php if ($compare_stats): ?>
                         <tr>
@@ -295,6 +305,7 @@ function gf_reports_render_page() {
                             <td><?php echo number_format($compare_stats['entry_count']); ?></td>
                             <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
                             <td><?php echo ($compare_stats['total_revenue'] !== null) ? ('$' . number_format($compare_stats['total_revenue'], 2)) : 'N/A'; ?></td>
+                            <td><?php echo $show_by === 'per_day' ? 'Per Day' : 'Total'; ?></td>
                         </tr>
                         <?php endif; ?>
                     </tbody>
@@ -303,9 +314,11 @@ function gf_reports_render_page() {
                 <div class="chart-container">
                     <h3>Entries Over Time</h3>
                     <canvas id="entriesChart" width="400" height="200"></canvas>
+                    <div id="chartjs-no-data" style="display:none; color:#888; text-align:center; margin-top:20px;">No data for this period.</div>
                 </div>
                 <script>
                 // Pass data to JavaScript for chart
+                var chartMode = <?php echo json_encode($show_by); ?>;
                 var chartData = {
                     labels: <?php echo json_encode(array_keys(gf_reports_get_daily_entries($selected_form, $start_date, $end_date))); ?>,
                     data: <?php echo json_encode(array_values(gf_reports_get_daily_entries($selected_form, $start_date, $end_date))); ?>

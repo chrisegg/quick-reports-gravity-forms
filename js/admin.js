@@ -5,7 +5,7 @@
 jQuery(document).ready(function($) {
     
     // Initialize chart if data is available
-    if (typeof chartData !== 'undefined' && chartData.labels.length > 0) {
+    if (typeof chartData !== 'undefined') {
         initializeChart();
     }
     
@@ -50,32 +50,70 @@ jQuery(document).ready(function($) {
      */
     function initializeChart() {
         var ctx = document.getElementById('entriesChart').getContext('2d');
-        
-        var chart = new Chart(ctx, {
-            type: 'line',
+        var datasets = [];
+        var hasData = false;
+        var mode = typeof chartMode !== 'undefined' ? chartMode : 'per_day';
+
+        // Main form dataset
+        if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
+            hasData = true;
+            datasets.push({
+                label: $('#form_id option:selected').text() || 'Form 1',
+                data: mode === 'total' ? [chartData.data.reduce((a,b)=>a+b,0)] : chartData.data,
+                borderColor: '#2271b1',
+                backgroundColor: 'rgba(34, 113, 177, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#2271b1',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            });
+        }
+        // Compare form dataset
+        if (typeof compareChartData !== 'undefined' && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
+            hasData = true;
+            datasets.push({
+                label: $('#compare_form_id option:selected').text() || 'Form 2',
+                data: mode === 'total' ? [compareChartData.data.reduce((a,b)=>a+b,0)] : compareChartData.data,
+                borderColor: '#34c759',
+                backgroundColor: 'rgba(52, 199, 89, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#34c759',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            });
+        }
+        // No data
+        if (!hasData) {
+            $('#entriesChart').hide();
+            $('#chartjs-no-data').show();
+            return;
+        } else {
+            $('#entriesChart').show();
+            $('#chartjs-no-data').hide();
+        }
+        // Chart type and labels
+        var chartType = (mode === 'total') ? 'bar' : 'line';
+        var labels = (mode === 'total') ? ['Total'] : (chartData.labels || []);
+        new Chart(ctx, {
+            type: chartType,
             data: {
-                labels: chartData.labels,
-                datasets: [{
-                    label: 'Entries',
-                    data: chartData.data,
-                    borderColor: '#2271b1',
-                    backgroundColor: 'rgba(34, 113, 177, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#2271b1',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
+                labels: labels,
+                datasets: datasets
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        display: false
+                        display: true
                     },
                     tooltip: {
                         backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -84,10 +122,10 @@ jQuery(document).ready(function($) {
                         borderColor: '#2271b1',
                         borderWidth: 1,
                         cornerRadius: 4,
-                        displayColors: false,
+                        displayColors: true,
                         callbacks: {
                             title: function(context) {
-                                return 'Date: ' + context[0].label;
+                                return mode === 'total' ? 'Total' : 'Date: ' + context[0].label;
                             },
                             label: function(context) {
                                 return 'Entries: ' + context.parsed.y;
