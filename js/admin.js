@@ -275,9 +275,17 @@ jQuery(document).ready(function($) {
      * Export functionality
      */
     function exportReport(type) {
+        console.log('GF Reports Debug - Starting export:', type);
         var formId = $('#form_id').val();
         var startDate = $('#start_date').val();
         var endDate = $('#end_date').val();
+        
+        console.log('GF Reports Debug - Export parameters:', {
+            formId: formId,
+            startDate: startDate,
+            endDate: endDate,
+            type: type
+        });
         
         if (!formId) {
             showNotice('Please select a form to export.', 'error');
@@ -300,13 +308,17 @@ jQuery(document).ready(function($) {
         // For PDF export, include the chart as an image
         if (type === 'pdf' && window.currentChart) {
             try {
+                console.log('GF Reports Debug - Adding chart to PDF export');
                 var chartCanvas = document.getElementById('entriesChart');
                 var chartImage = chartCanvas.toDataURL('image/png');
                 formData.append('chart_data', chartImage);
+                console.log('GF Reports Debug - Chart data length:', chartImage.length);
             } catch (e) {
-                console.error('Failed to get chart image:', e);
+                console.error('GF Reports Debug - Failed to get chart image:', e);
             }
         }
+        
+        console.log('GF Reports Debug - Making AJAX request to:', gf_reports_ajax.ajax_url);
         
         // Make AJAX request
         $.ajax({
@@ -315,10 +327,26 @@ jQuery(document).ready(function($) {
             data: formData,
             processData: false,
             contentType: false,
+            xhr: function() {
+                var xhr = new window.XMLHttpRequest();
+                xhr.responseType = type === 'pdf' ? 'arraybuffer' : 'blob';
+                return xhr;
+            },
             success: function(response) {
-                if (type === 'csv') {
-                    // Create download link for CSV
-                    var blob = new Blob([response], { type: 'text/csv' });
+                console.log('GF Reports Debug - Export successful, response type:', typeof response);
+                
+                try {
+                    // Create blob from response
+                    var blob;
+                    if (type === 'pdf') {
+                        blob = new Blob([response], { type: 'application/pdf' });
+                    } else {
+                        blob = new Blob([response], { type: 'text/csv;charset=utf-8' });
+                    }
+                    
+                    console.log('GF Reports Debug - Created blob, size:', blob.size);
+                    
+                    // Create and trigger download
                     var url = window.URL.createObjectURL(blob);
                     var a = document.createElement('a');
                     a.href = url;
@@ -327,24 +355,20 @@ jQuery(document).ready(function($) {
                     a.click();
                     document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
-                } else if (type === 'pdf') {
-                    // For PDF, the response is already a PDF file
-                    var blob = new Blob([response], { type: 'application/pdf' });
-                    var url = window.URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'gf-reports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.pdf';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
+                    
+                    showNotice(type.toUpperCase() + ' export completed successfully!', 'success');
+                } catch (e) {
+                    console.error('GF Reports Debug - Error processing response:', e);
+                    showNotice('Error processing ' + type.toUpperCase() + ' export response.', 'error');
                 }
-                
-                showNotice(type.toUpperCase() + ' export completed successfully!', 'success');
             },
             error: function(xhr, status, error) {
-                showNotice('Export failed. Please try again.', 'error');
-                console.error('Export error:', error);
+                console.error('GF Reports Debug - Export error:', {
+                    status: status,
+                    error: error,
+                    response: xhr.responseText
+                });
+                showNotice('Export failed. Please check browser console for details.', 'error');
             },
             complete: function() {
                 $button.text(originalText).prop('disabled', false);

@@ -619,15 +619,24 @@ add_action('wp_ajax_gf_reports_export_csv', 'gf_reports_export_csv');
 
 function gf_reports_export_csv() {
     try {
+        error_log('GF Reports Debug - Starting CSV export');
+        
         check_ajax_referer('gf_reports_nonce', 'nonce');
         
         if (!current_user_can('gravityforms_view_entries')) {
+            error_log('GF Reports Error - Unauthorized access attempt');
             wp_die('Unauthorized');
         }
         
         $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
         $start_date = sanitize_text_field($_POST['start_date']);
         $end_date = sanitize_text_field($_POST['end_date']);
+        
+        error_log('GF Reports Debug - Export parameters: ' . json_encode(array(
+            'form_id' => $form_id,
+            'start_date' => $start_date,
+            'end_date' => $end_date
+        )));
         
         $search_criteria = array('status' => 'active');
         if ($start_date) {
@@ -637,20 +646,19 @@ function gf_reports_export_csv() {
             $search_criteria['end_date'] = $end_date . ' 23:59:59';
         }
 
-        // Clear any previous output
+        // Before output
+        error_log('GF Reports Debug - About to output CSV content');
+        
+        // Clear any previous output and disable compression
         if (ob_get_length()) ob_clean();
-
+        if (ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
+        
         // Set headers for CSV download
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="gf-reports-' . $form_id . '-' . date('Y-m-d') . '.csv"');
         
         $output = fopen('php://output', 'w');
         fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // Add UTF-8 BOM
-
-        // Write report summary section
-        fputcsv($output, array('Report Summary'));
-        fputcsv($output, array('Date Range:', date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))));
-        fputcsv($output, array('')); // Empty line for spacing
 
         if ($form_id === 'all') {
             // Export data for all forms
@@ -778,6 +786,7 @@ function gf_reports_export_csv() {
             }
         }
         
+        error_log('GF Reports Debug - CSV output complete');
         fclose($output);
         exit;
         
@@ -795,26 +804,48 @@ add_action('wp_ajax_gf_reports_export_pdf', 'gf_reports_export_pdf');
 
 function gf_reports_export_pdf() {
     try {
+        error_log('GF Reports Debug - Starting PDF export');
+        
         check_ajax_referer('gf_reports_nonce', 'nonce');
         
         if (!current_user_can('gravityforms_view_entries')) {
+            error_log('GF Reports Error - Unauthorized access attempt');
             wp_die('Unauthorized');
         }
         
         // Check if DOMPDF is available
         if (!class_exists('Dompdf\\Dompdf')) {
-            error_log('GF Reports Error: DOMPDF class not found');
-            wp_die('PDF generation library not available');
+            // Try to load it from vendor directory
+            $autoload_path = __DIR__ . '/vendor/autoload.php';
+            error_log('GF Reports Debug - Looking for autoload.php at: ' . $autoload_path);
+            
+            if (file_exists($autoload_path)) {
+                require_once $autoload_path;
+                error_log('GF Reports Debug - Loaded autoload.php');
+            } else {
+                error_log('GF Reports Error - autoload.php not found');
+                wp_die('PDF generation library not available - autoload.php not found');
+            }
+            
+            if (!class_exists('Dompdf\\Dompdf')) {
+                error_log('GF Reports Error - DOMPDF class still not available after loading autoload.php');
+                wp_die('PDF generation library not available - DOMPDF class not found');
+            }
         }
+        
+        error_log('GF Reports Debug - DOMPDF class is available');
         
         $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
         $start_date = sanitize_text_field($_POST['start_date']);
         $end_date = sanitize_text_field($_POST['end_date']);
         $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
         
-        error_log('GF Reports Debug - Starting PDF generation');
-        error_log('GF Reports Debug - Form ID: ' . $form_id);
-        error_log('GF Reports Debug - Chart data length: ' . strlen($chart_data));
+        error_log('GF Reports Debug - Export parameters: ' . json_encode(array(
+            'form_id' => $form_id,
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'has_chart' => !empty($chart_data)
+        )));
         
         // Generate HTML content
         $html = '<html><head><style>
@@ -961,8 +992,18 @@ function gf_reports_export_pdf() {
         
         error_log('GF Reports Debug - HTML generated, length: ' . strlen($html));
         
-        // Generate PDF
-        $dompdf = new \Dompdf\Dompdf();
+        // Before PDF generation
+        error_log('GF Reports Debug - About to initialize DOMPDF');
+        
+        // Initialize DOMPDF with options
+        $options = new \Dompdf\Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isPhpEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        
+        $dompdf = new \Dompdf\Dompdf($options);
+        error_log('GF Reports Debug - DOMPDF initialized');
+        
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->loadHtml($html);
         
@@ -972,20 +1013,24 @@ function gf_reports_export_pdf() {
         
         // Get the PDF content
         $pdf_content = $dompdf->output();
-        error_log('GF Reports Debug - PDF content length: ' . strlen($pdf_content));
+        $content_length = strlen($pdf_content);
+        error_log('GF Reports Debug - PDF content length: ' . $content_length);
         
-        // Clear any previous output
+        // Clear any previous output and disable compression
         if (ob_get_length()) ob_clean();
+        if (ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
         
         // Set headers for PDF download
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="gf-reports-' . $form_id . '-' . date('Y-m-d') . '.pdf"');
-        header('Content-Length: ' . strlen($pdf_content));
+        header('Content-Length: ' . $content_length);
         header('Cache-Control: private, no-store, no-cache, must-revalidate');
         header('Pragma: no-cache');
         
         // Output PDF content
+        error_log('GF Reports Debug - About to output PDF content');
         echo $pdf_content;
+        error_log('GF Reports Debug - PDF output complete');
         exit;
         
     } catch (Exception $e) {
