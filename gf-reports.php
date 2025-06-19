@@ -159,7 +159,6 @@ function gf_reports_render_page() {
         <div class="gf-reports-filters">
             <form method="GET" class="gf-reports-form">
                 <input type="hidden" name="page" value="gf-reports">
-                
                 <div class="filter-row">
                     <label for="form_id">Select Form:</label>
                     <select name="form_id" id="form_id">
@@ -171,16 +170,15 @@ function gf_reports_render_page() {
                         <?php endforeach; ?>
                     </select>
                 </div>
-
                 <div class="filter-row">
                     <label for="start_date">Start Date:</label>
                     <input type="date" name="start" id="start_date" value="<?php echo esc_attr($start_date); ?>">
-                    
+                </div>
+                <div class="filter-row">
                     <label for="end_date">End Date:</label>
                     <input type="date" name="end" id="end_date" value="<?php echo esc_attr($end_date); ?>">
                 </div>
-
-                <div class="filter-row">
+                <div class="filter-row" style="min-width:120px;">
                     <button type="submit" class="button button-primary">Generate Report</button>
                     <?php if ($selected_form): ?>
                         <button type="button" class="button button-secondary" id="export-csv">Export CSV</button>
@@ -191,7 +189,6 @@ function gf_reports_render_page() {
 
         <?php if ($selected_form): ?>
             <hr>
-            
             <!-- Report Results -->
             <div class="gf-reports-results">
                 <?php
@@ -205,11 +202,34 @@ function gf_reports_render_page() {
 
                 $entry_count = GFAPI::count_entries($selected_form, $search_criteria);
                 $entries = GFAPI::get_entries($selected_form, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
-                
-                // Get form details
                 $form = GFAPI::get_form($selected_form);
+
+                // Revenue calculation
+                $product_fields = array();
+                foreach ($form['fields'] as $field) {
+                    if (isset($field['type']) && $field['type'] === 'product') {
+                        $product_fields[] = $field['id'];
+                    }
+                }
+                $total_revenue = 0;
+                if (!empty($product_fields)) {
+                    foreach ($entries as $entry) {
+                        foreach ($product_fields as $pid) {
+                            $val = rgar($entry, $pid);
+                            if (is_numeric($val)) {
+                                $total_revenue += floatval($val);
+                            } elseif (is_array($val) && isset($val['price'])) {
+                                $total_revenue += floatval($val['price']);
+                            } elseif (is_string($val)) {
+                                // Try to extract price from string (e.g., "$10.00")
+                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                    $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                }
+                            }
+                        }
+                    }
+                }
                 ?>
-                
                 <div class="report-summary">
                     <h2>Report Summary</h2>
                     <div class="summary-stats">
@@ -217,64 +237,65 @@ function gf_reports_render_page() {
                             <h3>Total Entries</h3>
                             <div class="stat-number"><?php echo number_format($entry_count); ?></div>
                         </div>
-                        
                         <?php if ($start_date && $end_date): ?>
-                            <div class="stat-card">
-                                <h3>Date Range</h3>
-                                <div class="stat-text"><?php echo date('M j, Y', strtotime($start_date)); ?> - <?php echo date('M j, Y', strtotime($end_date)); ?></div>
-                            </div>
+                        <div class="stat-card">
+                            <h3>Date Range</h3>
+                            <div class="stat-text"><?php echo date('M j, Y', strtotime($start_date)); ?> - <?php echo date('M j, Y', strtotime($end_date)); ?></div>
+                        </div>
                         <?php endif; ?>
-                        
                         <div class="stat-card">
                             <h3>Form</h3>
                             <div class="stat-text"><?php echo esc_html($form['title']); ?></div>
                         </div>
+                        <div class="stat-card revenue">
+                            <h3>Total Revenue</h3>
+                            <div class="stat-number">
+                                <?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
                 <!-- Chart Container -->
                 <div class="chart-container">
                     <h3>Entries Over Time</h3>
                     <canvas id="entriesChart" width="400" height="200"></canvas>
                 </div>
-
                 <!-- Recent Entries Table -->
                 <?php if (!empty($entries)): ?>
-                    <div class="recent-entries">
-                        <h3>Recent Entries (Last 10)</h3>
-                        <table class="wp-list-table widefat fixed striped">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Entry ID</th>
-                                    <?php foreach ($form['fields'] as $field): ?>
-                                        <?php if ($field['type'] !== 'section' && $field['type'] !== 'html'): ?>
-                                            <th><?php echo esc_html($field['label']); ?></th>
-                                        <?php endif; ?>
-                                    <?php endforeach; ?>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php 
-                                $recent_entries = array_slice($entries, 0, 10);
-                                foreach ($recent_entries as $entry): 
-                                ?>
-                                    <tr>
-                                        <td><?php echo date('M j, Y g:i A', strtotime($entry['date_created'])); ?></td>
-                                        <td><?php echo $entry['id']; ?></td>
-                                        <?php foreach ($form['fields'] as $field): ?>
-                                            <?php if ($field['type'] !== 'section' && $field['type'] !== 'html'): ?>
-                                                <td><?php echo esc_html(rgar($entry, $field['id'])); ?></td>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    </tr>
+                <div class="recent-entries">
+                    <h3>Recent Entries (Last 10)</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Entry ID</th>
+                                <?php foreach ($form['fields'] as $field): ?>
+                                    <?php if ($field['type'] !== 'section' && $field['type'] !== 'html'): ?>
+                                        <th><?php echo esc_html($field['label']); ?></th>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $recent_entries = array_slice($entries, 0, 10);
+                            foreach ($recent_entries as $entry): 
+                            ?>
+                            <tr>
+                                <td><?php echo date('M j, Y g:i A', strtotime($entry['date_created'])); ?></td>
+                                <td><?php echo $entry['id']; ?></td>
+                                <?php foreach ($form['fields'] as $field): ?>
+                                    <?php if ($field['type'] !== 'section' && $field['type'] !== 'html'): ?>
+                                        <td><?php echo esc_html(rgar($entry, $field['id'])); ?></td>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
                 <?php endif; ?>
             </div>
-
             <script>
                 // Pass data to JavaScript for chart
                 var chartData = {
