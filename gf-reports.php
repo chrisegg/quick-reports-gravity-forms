@@ -276,27 +276,24 @@ function gf_reports_render_page() {
                 <table class="wp-list-table widefat fixed striped report-summary-table">
                     <thead>
                         <tr>
-                            <th></th>
+                            <th>Form</th>
                             <th>Total Entries</th>
                             <th>Date Range</th>
-                            <th>Form</th>
                             <th>Total Revenue</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <th><?php echo esc_html($form['title']); ?></th>
+                            <td><?php echo esc_html($form['title']); ?></td>
                             <td><?php echo number_format($entry_count); ?></td>
                             <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
-                            <td><?php echo esc_html($form['title']); ?></td>
                             <td><?php echo !empty($product_fields) ? ('$' . number_format($total_revenue, 2)) : 'N/A'; ?></td>
                         </tr>
                         <?php if ($compare_stats): ?>
                         <tr>
-                            <th><?php echo esc_html($compare_stats['form_title']); ?></th>
+                            <td><?php echo esc_html($compare_stats['form_title']); ?></td>
                             <td><?php echo number_format($compare_stats['entry_count']); ?></td>
                             <td><?php echo ($start_date && $end_date) ? (date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date))) : '—'; ?></td>
-                            <td><?php echo esc_html($compare_stats['form_title']); ?></td>
                             <td><?php echo ($compare_stats['total_revenue'] !== null) ? ('$' . number_format($compare_stats['total_revenue'], 2)) : 'N/A'; ?></td>
                         </tr>
                         <?php endif; ?>
