@@ -16,19 +16,36 @@ jQuery(document).ready(function($) {
         exportReport(exportType);
     });
     
-    // Form validation
-    $('.gf-quickreports-form').on('submit', function(e) {
+    // Form validation and submission handling
+    $('form').on('submit', function(e) {
         var formId = $('#form_id').val();
-        var startDate = $('#start_date').val();
-        var endDate = $('#end_date').val();
+        var preset = $('#date_preset').val();
         
+        // Check form selection
         if (!formId) {
             e.preventDefault();
             showNotice('Please select a form to generate a report.', 'error');
             return false;
         }
         
-        if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+        // Handle date preset validation
+        if (preset !== 'custom') {
+            // For non-custom presets, we don't need to validate date fields
+            // The server will handle the preset logic
+            return true;
+        }
+        
+        // For custom range, validate the date fields
+        var startDate = $('#start_date').val();
+        var endDate = $('#end_date').val();
+        
+        if (!startDate || !endDate) {
+            e.preventDefault();
+            showNotice('Please select both start and end dates for custom range.', 'error');
+            return false;
+        }
+        
+        if (new Date(startDate) > new Date(endDate)) {
             e.preventDefault();
             showNotice('Start date cannot be after end date.', 'error');
             return false;
@@ -328,12 +345,62 @@ jQuery(document).ready(function($) {
             updateChartViewVisibility(selectedForm);
         }
         
-        // Initialize date preset if one is selected
+        // Initialize date preset and fields on page load
         var selectedPreset = $('#date_preset').val();
         if (selectedPreset && selectedPreset !== 'custom') {
+            // If a preset is selected, hide date fields and update them
             hideDateFields();
+            updateDateFieldsFromPreset(selectedPreset);
         } else {
             showDateFields();
+        }
+    }
+    
+    /**
+     * Update date fields from preset without AJAX (for initialization)
+     */
+    function updateDateFieldsFromPreset(preset) {
+        var startDate = '';
+        var endDate = '';
+        
+        switch(preset) {
+            case 'today':
+                startDate = new Date().toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case 'yesterday':
+                startDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case '7days':
+                startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case '30days':
+                startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case '60days':
+                startDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case '90days':
+                startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case 'year_to_date':
+                startDate = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case 'last_year':
+                startDate = new Date(new Date().getFullYear() - 1, 0, 1).toISOString().split('T')[0];
+                endDate = new Date(new Date().getFullYear() - 1, 11, 31).toISOString().split('T')[0];
+                break;
+        }
+        
+        if (startDate && endDate) {
+            $('#start_date').val(startDate);
+            $('#end_date').val(endDate);
         }
     }
     

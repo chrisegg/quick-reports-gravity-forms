@@ -20,8 +20,52 @@ if (!class_exists('GFFormsModel')) {
 
 $forms = GFAPI::get_forms();
 $selected_form = isset($_GET['form_id']) ? $_GET['form_id'] : 0;
-$start_date = isset($_GET['start']) ? sanitize_text_field($_GET['start']) : date('Y-m-d', strtotime('-30 days'));
-$end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-d');
+$date_preset = isset($_GET['date_preset']) ? sanitize_text_field($_GET['date_preset']) : 'custom';
+
+// Handle date preset logic
+if ($date_preset && $date_preset !== 'custom') {
+    switch($date_preset) {
+        case 'today':
+            $start_date = date('Y-m-d');
+            $end_date = date('Y-m-d');
+            break;
+        case 'yesterday':
+            $start_date = date('Y-m-d', strtotime('-1 day'));
+            $end_date = date('Y-m-d', strtotime('-1 day'));
+            break;
+        case '7days':
+            $start_date = date('Y-m-d', strtotime('-7 days'));
+            $end_date = date('Y-m-d');
+            break;
+        case '30days':
+            $start_date = date('Y-m-d', strtotime('-30 days'));
+            $end_date = date('Y-m-d');
+            break;
+        case '60days':
+            $start_date = date('Y-m-d', strtotime('-60 days'));
+            $end_date = date('Y-m-d');
+            break;
+        case '90days':
+            $start_date = date('Y-m-d', strtotime('-90 days'));
+            $end_date = date('Y-m-d');
+            break;
+        case 'year_to_date':
+            $start_date = date('Y-01-01');
+            $end_date = date('Y-m-d');
+            break;
+        case 'last_year':
+            $start_date = date('Y-01-01', strtotime('-1 year'));
+            $end_date = date('Y-12-31', strtotime('-1 year'));
+            break;
+        default:
+            $start_date = isset($_GET['start']) ? sanitize_text_field($_GET['start']) : date('Y-m-d', strtotime('-30 days'));
+            $end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-d');
+            break;
+    }
+} else {
+    $start_date = isset($_GET['start']) ? sanitize_text_field($_GET['start']) : date('Y-m-d', strtotime('-30 days'));
+    $end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-d');
+}
 
 ?>
 <div class="wrap">
@@ -64,15 +108,15 @@ $end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-
             <div class="alignleft actions">
                 <label for="date_preset" class="screen-reader-text"><?php _e('Date Preset', 'gf-quickreports'); ?></label>
                 <select name="date_preset" id="date_preset">
-                    <option value="custom"><?php _e('Custom Range', 'gf-quickreports'); ?></option>
-                    <option value="today"><?php _e('Today', 'gf-quickreports'); ?></option>
-                    <option value="yesterday"><?php _e('Yesterday', 'gf-quickreports'); ?></option>
-                    <option value="7days"><?php _e('Last 7 Days', 'gf-quickreports'); ?></option>
-                    <option value="30days"><?php _e('Last 30 Days', 'gf-quickreports'); ?></option>
-                    <option value="60days"><?php _e('Last 60 Days', 'gf-quickreports'); ?></option>
-                    <option value="90days"><?php _e('Last 90 Days', 'gf-quickreports'); ?></option>
-                    <option value="year_to_date"><?php _e('Year to Date', 'gf-quickreports'); ?></option>
-                    <option value="last_year"><?php _e('Last Year', 'gf-quickreports'); ?></option>
+                    <option value="custom" <?php selected($date_preset, 'custom'); ?>><?php _e('Custom Range', 'gf-quickreports'); ?></option>
+                    <option value="today" <?php selected($date_preset, 'today'); ?>><?php _e('Today', 'gf-quickreports'); ?></option>
+                    <option value="yesterday" <?php selected($date_preset, 'yesterday'); ?>><?php _e('Yesterday', 'gf-quickreports'); ?></option>
+                    <option value="7days" <?php selected($date_preset, '7days'); ?>><?php _e('Last 7 Days', 'gf-quickreports'); ?></option>
+                    <option value="30days" <?php selected($date_preset, '30days'); ?>><?php _e('Last 30 Days', 'gf-quickreports'); ?></option>
+                    <option value="60days" <?php selected($date_preset, '60days'); ?>><?php _e('Last 60 Days', 'gf-quickreports'); ?></option>
+                    <option value="90days" <?php selected($date_preset, '90days'); ?>><?php _e('Last 90 Days', 'gf-quickreports'); ?></option>
+                    <option value="year_to_date" <?php selected($date_preset, 'year_to_date'); ?>><?php _e('Year to Date', 'gf-quickreports'); ?></option>
+                    <option value="last_year" <?php selected($date_preset, 'last_year'); ?>><?php _e('Last Year', 'gf-quickreports'); ?></option>
                 </select>
             </div>
             <?php if ($selected_form === 'all'): ?>
