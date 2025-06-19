@@ -87,15 +87,8 @@ if ($date_preset && $date_preset !== 'custom') {
             </div>
             <div class="alignleft actions">
                 <label for="compare_form_id" class="screen-reader-text"><?php _e('Compare With', 'gf-quickreports'); ?></label>
-                <select name="compare_form_id" id="compare_form_id">
+                <select name="compare_form_id" id="compare_form_id" <?php echo ($selected_form === 'all' || !$selected_form) ? 'disabled' : ''; ?>>
                     <option value=""><?php _e('Compare With...', 'gf-quickreports'); ?></option>
-                    <?php foreach ($forms as $form): ?>
-                        <?php if ($form['id'] != $selected_form && $selected_form !== 'all'): ?>
-                            <option value="<?php echo esc_attr($form['id']); ?>" <?php selected(isset($_GET['compare_form_id']) ? $_GET['compare_form_id'] : '', $form['id']); ?>>
-                                <?php echo esc_html($form['title']); ?>
-                            </option>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
                 </select>
             </div>
             <div class="alignleft actions">
@@ -136,6 +129,7 @@ if ($date_preset && $date_preset !== 'custom') {
             </div>
             <div class="alignleft actions">
                 <input type="hidden" name="page" value="gf_quickreports">
+                <input type="hidden" id="current_compare_form_id" value="<?php echo isset($_GET['compare_form_id']) ? esc_attr($_GET['compare_form_id']) : ''; ?>">
                 <input type="submit" class="button" value="<?php _e('Generate Report', 'gf-quickreports'); ?>">
                 <?php if ($selected_form): ?>
                     <button type="button" class="button" id="export-csv"><?php _e('Export CSV', 'gf-quickreports'); ?></button>

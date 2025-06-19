@@ -55,7 +55,16 @@ jQuery(document).ready(function($) {
     // Form selection change - update compare form options
     $('#form_id').on('change', function() {
         var selectedForm = $(this).val();
-        updateCompareFormOptions(selectedForm);
+        
+        // Immediately update compare form options
+        if (selectedForm && selectedForm !== 'all') {
+            // Enable and populate compare form dropdown immediately
+            updateCompareFormOptions(selectedForm);
+        } else {
+            // Disable compare form dropdown for "All Forms" or no selection
+            $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
+        }
+        
         updateChartViewVisibility(selectedForm);
     });
     
@@ -346,10 +355,21 @@ jQuery(document).ready(function($) {
     function addDatePresets() {
         // Initialize compare form options on page load
         var selectedForm = $('#form_id').val();
-        if (selectedForm) {
-            updateCompareFormOptions(selectedForm);
-            updateChartViewVisibility(selectedForm);
+        var currentCompareFormId = $('#current_compare_form_id').val();
+        
+        if (selectedForm && selectedForm !== 'all') {
+            // If a form is selected and there's a comparison form already selected, populate the dropdown
+            if (currentCompareFormId) {
+                updateCompareFormOptions(selectedForm, currentCompareFormId);
+            } else {
+                updateCompareFormOptions(selectedForm);
+            }
+        } else {
+            // Disable compare form dropdown for "All Forms" or no selection
+            $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
         }
+        
+        updateChartViewVisibility(selectedForm);
         
         // Initialize date preset and fields on page load
         var selectedPreset = $('#date_preset').val();
@@ -469,7 +489,7 @@ jQuery(document).ready(function($) {
     /**
      * Update compare form options via AJAX
      */
-    function updateCompareFormOptions(selectedForm) {
+    function updateCompareFormOptions(selectedForm, preserveValue) {
         if (!selectedForm || selectedForm === 'all') {
             $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
             return;
@@ -489,10 +509,17 @@ jQuery(document).ready(function($) {
                     $select.html('<option value="">Compare With...</option>');
                     
                     response.data.options.forEach(function(option) {
-                        $select.append($('<option>', {
+                        var $option = $('<option>', {
                             value: option.value,
                             text: option.label
-                        }));
+                        });
+                        
+                        // Preserve the selected value if provided
+                        if (preserveValue && option.value === preserveValue) {
+                            $option.prop('selected', true);
+                        }
+                        
+                        $select.append($option);
                     });
                     
                     $select.prop('disabled', false);

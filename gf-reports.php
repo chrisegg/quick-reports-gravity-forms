@@ -468,7 +468,7 @@ class GF_QuickReports {
                         }
                     }
                     
-                    // Write comparison form data
+                    // Write comparison form data (always write, regardless of product fields)
                     fputcsv($output, array(
                         $compare_form['title'],
                         $compare_entry_count,
