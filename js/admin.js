@@ -4,9 +4,44 @@
 
 jQuery(document).ready(function($) {
     
+    // Debug: Log what data we have
+    console.log('GF Reports Debug - Chart data:', typeof window.chartData !== 'undefined' ? window.chartData : 'undefined');
+    console.log('GF Reports Debug - Compare data:', typeof window.compareChartData !== 'undefined' ? window.compareChartData : 'undefined');
+    console.log('GF Reports Debug - Chart mode:', typeof window.chartMode !== 'undefined' ? window.chartMode : 'undefined');
+    console.log('GF Reports Debug - Chart.js loaded:', typeof Chart !== 'undefined');
+    console.log('GF Reports Debug - jQuery loaded:', typeof $ !== 'undefined');
+    console.log('GF Reports Debug - Canvas element exists:', $('#entriesChart').length > 0);
+    
     // Initialize chart if data is available
-    if (typeof chartData !== 'undefined') {
-        initializeChart();
+    if (typeof window.chartData !== 'undefined') {
+        // Try multiple times to ensure Chart.js is loaded
+        var attempts = 0;
+        var maxAttempts = 5;
+        
+        function tryInitChart() {
+            attempts++;
+            console.log('GF Reports Debug - Chart init attempt:', attempts);
+            
+            if (typeof Chart !== 'undefined') {
+                initializeChart();
+            } else if (attempts < maxAttempts) {
+                // Wait and try again
+                setTimeout(tryInitChart, 500);
+            } else {
+                console.error('Chart.js failed to load after', maxAttempts, 'attempts');
+                $('#entriesChart').hide();
+                $('#chartjs-no-data').text('Chart library failed to load. Please refresh the page.').show();
+            }
+        }
+        
+        tryInitChart();
+    } else {
+        console.log('GF Reports Debug - No chart data available');
+        // Still show the no data message if canvas exists
+        if ($('#entriesChart').length > 0) {
+            $('#entriesChart').hide();
+            $('#chartjs-no-data').show();
+        }
     }
     
     // CSV Export functionality
@@ -49,131 +84,166 @@ jQuery(document).ready(function($) {
      * Initialize Chart.js for entries over time
      */
     function initializeChart() {
-        var ctx = document.getElementById('entriesChart').getContext('2d');
-        var datasets = [];
-        var hasData = false;
-        var mode = typeof chartMode !== 'undefined' ? chartMode : 'per_day';
-
-        // Main form dataset
-        if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
-            hasData = true;
-            datasets.push({
-                label: $('#form_id option:selected').text() || 'Form 1',
-                data: mode === 'total' ? [chartData.data.reduce((a,b)=>a+b,0)] : chartData.data,
-                borderColor: '#2271b1',
-                backgroundColor: 'rgba(34, 113, 177, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#2271b1',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
-        // Compare form dataset
-        if (typeof compareChartData !== 'undefined' && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
-            hasData = true;
-            datasets.push({
-                label: $('#compare_form_id option:selected').text() || 'Form 2',
-                data: mode === 'total' ? [compareChartData.data.reduce((a,b)=>a+b,0)] : compareChartData.data,
-                borderColor: '#34c759',
-                backgroundColor: 'rgba(52, 199, 89, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#34c759',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            });
-        }
-        // No data
-        if (!hasData) {
-            $('#entriesChart').hide();
-            $('#chartjs-no-data').show();
+        console.log('GF Reports Debug - Initializing chart...');
+        
+        var canvas = document.getElementById('entriesChart');
+        if (!canvas) {
+            console.error('GF Reports Debug - Canvas element not found');
             return;
-        } else {
-            $('#entriesChart').show();
-            $('#chartjs-no-data').hide();
         }
-        // Chart type and labels
-        var chartType = (mode === 'total') ? 'bar' : 'line';
-        var labels = (mode === 'total') ? ['Total'] : (chartData.labels || []);
-        new Chart(ctx, {
-            type: chartType,
-            data: {
-                labels: labels,
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
-                        borderColor: '#2271b1',
-                        borderWidth: 1,
-                        cornerRadius: 4,
-                        displayColors: true,
-                        callbacks: {
-                            title: function(context) {
-                                return mode === 'total' ? 'Total' : 'Date: ' + context[0].label;
-                            },
-                            label: function(context) {
-                                return 'Entries: ' + context.parsed.y;
-                            }
-                        }
-                    }
+        
+        try {
+            var ctx = canvas.getContext('2d');
+            var datasets = [];
+            var hasData = false;
+            var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
+            var chartData = window.chartData;
+            var compareChartData = window.compareChartData;
+
+            console.log('GF Reports Debug - Mode:', mode);
+            console.log('GF Reports Debug - Chart data:', chartData);
+
+            // Main form dataset
+            if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
+                hasData = true;
+                var formLabel = $('#form_id option:selected').text() || 'Form 1';
+                console.log('GF Reports Debug - Adding main dataset:', formLabel);
+                datasets.push({
+                    label: formLabel,
+                    data: mode === 'total' ? [chartData.data.reduce((a,b)=>a+b,0)] : chartData.data,
+                    borderColor: '#2271b1',
+                    backgroundColor: 'rgba(34, 113, 177, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#2271b1',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                });
+            }
+            
+            // Compare form dataset
+            if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
+                hasData = true;
+                var compareLabel = $('#compare_form_id option:selected').text() || 'Form 2';
+                console.log('GF Reports Debug - Adding compare dataset:', compareLabel);
+                datasets.push({
+                    label: compareLabel,
+                    data: mode === 'total' ? [compareChartData.data.reduce((a,b)=>a+b,0)] : compareChartData.data,
+                    borderColor: '#34c759',
+                    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#34c759',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                });
+            }
+            
+            // No data
+            if (!hasData) {
+                console.log('GF Reports Debug - No data available for chart');
+                $('#entriesChart').hide();
+                $('#chartjs-no-data').show();
+                return;
+            } else {
+                $('#entriesChart').show();
+                $('#chartjs-no-data').hide();
+            }
+            
+            // Chart type and labels
+            var chartType = (mode === 'total') ? 'bar' : 'line';
+            var labels = (mode === 'total') ? ['Total'] : (chartData.labels || []);
+            
+            console.log('GF Reports Debug - Chart type:', chartType);
+            console.log('GF Reports Debug - Labels:', labels);
+            console.log('GF Reports Debug - Datasets:', datasets);
+            
+            var chart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: datasets
                 },
-                scales: {
-                    x: {
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.1)',
-                            drawBorder: false
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true
                         },
-                        ticks: {
-                            color: '#646970',
-                            font: {
-                                size: 12
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: '#2271b1',
+                            borderWidth: 1,
+                            cornerRadius: 4,
+                            displayColors: true,
+                            callbacks: {
+                                title: function(context) {
+                                    return mode === 'total' ? 'Total' : 'Date: ' + context[0].label;
+                                },
+                                label: function(context) {
+                                    return 'Entries: ' + context.parsed.y;
+                                }
                             }
                         }
                     },
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.1)',
-                            drawBorder: false
-                        },
-                        ticks: {
-                            color: '#646970',
-                            font: {
-                                size: 12
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBorder: false
                             },
-                            callback: function(value) {
-                                return value.toLocaleString();
+                            ticks: {
+                                color: '#646970',
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#646970',
+                                font: {
+                                    size: 12
+                                },
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
                             }
                         }
-                    }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                },
-                elements: {
-                    point: {
-                        hoverBackgroundColor: '#2271b1'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    elements: {
+                        point: {
+                            hoverBackgroundColor: '#2271b1'
+                        }
                     }
                 }
-            }
-        });
+            });
+            
+            console.log('GF Reports Debug - Chart created successfully:', chart);
+            
+        } catch (error) {
+            console.error('GF Reports Debug - Error creating chart:', error);
+            $('#entriesChart').hide();
+            $('#chartjs-no-data').text('Error creating chart: ' + error.message).show();
+        }
     }
     
     /**

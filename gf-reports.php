@@ -25,6 +25,8 @@ add_action('admin_init', 'gf_reports_add_menu_fallback');
 // Debug: Check if menu was added (only in debug mode)
 if (defined('WP_DEBUG') && WP_DEBUG) {
     add_action('admin_footer', 'gf_reports_debug_menu');
+    // Include chart debugging
+    include_once(GF_REPORTS_PLUGIN_PATH . 'debug-chart.php');
 }
 
 // Enqueue admin scripts and styles
@@ -114,12 +116,17 @@ function gf_reports_debug_menu() {
  * Enqueue scripts and styles for the reports page
  */
 function gf_reports_enqueue_scripts($hook) {
+    // Debug: Check what hook we're on
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log('GF Reports Debug - Hook: ' . $hook);
+    }
+    
     if ($hook !== 'gravity-forms_page_gf-reports') {
         return;
     }
 
     // Enqueue Chart.js from CDN
-    wp_enqueue_script('chartjs', 'https://cdn.jsdelivr.net/npm/chart.js', array(), '3.9.1', true);
+    wp_enqueue_script('chartjs', 'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js', array(), '3.9.1', true);
     
     // Enqueue custom scripts and styles
     wp_enqueue_script('gf-reports-admin', GF_REPORTS_PLUGIN_URL . 'js/admin.js', array('jquery', 'chartjs'), GF_REPORTS_VERSION, true);
@@ -130,6 +137,11 @@ function gf_reports_enqueue_scripts($hook) {
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce' => wp_create_nonce('gf_reports_nonce')
     ));
+    
+    // Debug: Log that scripts were enqueued
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log('GF Reports Debug - Scripts and styles enqueued for hook: ' . $hook);
+    }
 }
 
 /**
@@ -336,20 +348,44 @@ function gf_reports_render_page() {
                     <canvas id="entriesChart" width="400" height="200"></canvas>
                     <div id="chartjs-no-data" style="display:none; color:#888; text-align:center; margin-top:20px;">No data for this period.</div>
                 </div>
-                <script>
-                // Pass data to JavaScript for chart
-                var chartMode = <?php echo json_encode($show_by); ?>;
-                var chartData = {
-                    labels: <?php echo json_encode(array_keys($daily_entries)); ?>,
-                    data: <?php echo json_encode(array_values($show_by === 'per_day' ? $daily_entries : [array_sum($daily_entries)])); ?>
-                };
-                <?php if ($compare_form): ?>
-                var compareChartData = {
-                    labels: chartData.labels,
-                    data: <?php echo json_encode(array_values($show_by === 'per_day' ? $compare_daily_entries : [array_sum($compare_daily_entries)])); ?>
-                };
-                <?php endif; ?>
-                </script>
+                <?php
+                // Add inline script to footer to ensure proper loading order
+                $chart_labels = array_keys($daily_entries);
+                $chart_data_values = array_values($show_by === 'per_day' ? $daily_entries : [array_sum($daily_entries)]);
+                
+                // Debug: Log chart data
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('GF Reports Debug - Chart labels: ' . print_r($chart_labels, true));
+                    error_log('GF Reports Debug - Chart data: ' . print_r($chart_data_values, true));
+                    error_log('GF Reports Debug - Show by: ' . $show_by);
+                    error_log('GF Reports Debug - Daily entries: ' . print_r($daily_entries, true));
+                }
+                
+                $chart_script = "
+                console.log('GF Reports Debug - Inline script loaded');
+                console.log('GF Reports Debug - PHP Chart labels:', " . json_encode($chart_labels) . ");
+                console.log('GF Reports Debug - PHP Chart data:', " . json_encode($chart_data_values) . ");
+                window.chartMode = " . json_encode($show_by) . ";
+                window.chartData = {
+                    labels: " . json_encode($chart_labels) . ",
+                    data: " . json_encode($chart_data_values) . "
+                };";
+                
+                if ($compare_form) {
+                    $compare_data_values = array_values($show_by === 'per_day' ? $compare_daily_entries : [array_sum($compare_daily_entries)]);
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('GF Reports Debug - Compare data: ' . print_r($compare_data_values, true));
+                    }
+                    $chart_script .= "
+                console.log('GF Reports Debug - PHP Compare data:', " . json_encode($compare_data_values) . ");
+                window.compareChartData = {
+                    labels: window.chartData.labels,
+                    data: " . json_encode($compare_data_values) . "
+                };";
+                }
+                
+                wp_add_inline_script('gf-reports-admin', $chart_script, 'before');
+                ?>
             </div>
         <?php endif; ?>
     </div>
