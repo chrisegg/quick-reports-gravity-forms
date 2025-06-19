@@ -205,6 +205,15 @@ function gf_reports_render_page() {
                         <option value="per_day" <?php selected(isset($_GET['show_by']) ? $_GET['show_by'] : '', 'per_day'); ?>>Per Day</option>
                     </select>
                 </div>
+                <?php if ($selected_form === 'all'): ?>
+                <div class="alignleft actions">
+                    <label for="chart_view" class="screen-reader-text">Chart View</label>
+                    <select name="chart_view" id="chart_view">
+                        <option value="individual" <?php selected(isset($_GET['chart_view']) ? $_GET['chart_view'] : 'individual', 'individual'); ?>>Individual Forms</option>
+                        <option value="aggregated" <?php selected(isset($_GET['chart_view']) ? $_GET['chart_view'] : '', 'aggregated'); ?>>Aggregated Total</option>
+                    </select>
+                </div>
+                <?php endif; ?>
                 <div class="alignleft actions">
                     <label for="start_date" class="screen-reader-text">Start Date</label>
                     <input type="date" name="start" id="start_date" value="<?php echo esc_attr($start_date); ?>">
@@ -510,6 +519,49 @@ function gf_reports_render_page() {
                     data: " . json_encode($chart_data_values) . "
                 };
                 window.selectedFormLabel = " . json_encode($selected_form === 'all' ? 'All Forms' : $form['title']) . ";";
+                
+                // Add individual form data for "All Forms" chart
+                if ($selected_form === 'all') {
+                    $chart_view = isset($_GET['chart_view']) ? $_GET['chart_view'] : 'individual';
+                    
+                    $chart_script .= "
+                window.chartView = " . json_encode($chart_view) . ";
+                window.individualFormsData = [];";
+                    
+                    // Define colors for different forms
+                    $colors = array(
+                        '#2271b1', '#34c759', '#ff9500', '#ff3b30', '#af52de',
+                        '#5856d6', '#007aff', '#5ac8fa', '#ffcc02', '#ff9500'
+                    );
+                    
+                    foreach ($all_forms_data as $index => $form_data) {
+                        if ($form_data['entry_count'] > 0) { // Only include forms with entries
+                            $form_daily_entries = gf_reports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
+                            $form_data_values = array_values($show_by === 'per_day' ? $form_daily_entries : [array_sum($form_daily_entries)]);
+                            $color_index = $index % count($colors);
+                            
+                            $chart_script .= "
+                window.individualFormsData.push({
+                    label: " . json_encode($form_data['form_title']) . ",
+                    data: " . json_encode($form_data_values) . ",
+                    borderColor: " . json_encode($colors[$color_index]) . ",
+                    backgroundColor: " . json_encode(str_replace(')', ', 0.1)', $colors[$color_index])) . ",
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4,
+                    pointBackgroundColor: " . json_encode($colors[$color_index]) . ",
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                });";
+                        }
+                    }
+                    
+                    if (defined('WP_DEBUG') && WP_DEBUG) {
+                        error_log('GF Reports Debug - Individual forms data prepared for chart. Chart view: ' . $chart_view);
+                    }
+                }
                 
                 if ($compare_form) {
                     $compare_data_values = array_values($show_by === 'per_day' ? $compare_daily_entries : [array_sum($compare_daily_entries)]);

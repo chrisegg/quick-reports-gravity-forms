@@ -124,6 +124,23 @@ jQuery(document).ready(function($) {
                 });
             }
             
+            // Individual forms datasets (for "All Forms" view)
+            if (typeof window.individualFormsData !== 'undefined' && window.individualFormsData.length > 0 && 
+                typeof window.chartView !== 'undefined' && window.chartView === 'individual') {
+                console.log('GF Reports Debug - Adding individual forms datasets:', window.individualFormsData.length);
+                hasData = true;
+                
+                // Add each individual form as a separate dataset
+                window.individualFormsData.forEach(function(formDataset) {
+                    datasets.push(formDataset);
+                });
+                
+                // Remove the aggregated "All Forms" dataset since we're showing individual forms
+                datasets = datasets.filter(function(dataset) {
+                    return dataset.label !== 'All Forms';
+                });
+            }
+            
             // Compare form dataset
             if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
                 hasData = true;
