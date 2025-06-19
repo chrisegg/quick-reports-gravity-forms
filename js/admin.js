@@ -106,7 +106,7 @@ jQuery(document).ready(function($) {
             // Main form dataset
             if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
                 hasData = true;
-                var formLabel = $('#form_id option:selected').text() || 'Form 1';
+                var formLabel = typeof window.selectedFormLabel !== 'undefined' ? window.selectedFormLabel : ($('#form_id option:selected').text() || 'Form 1');
                 console.log('GF Reports Debug - Adding main dataset:', formLabel);
                 datasets.push({
                     label: formLabel,
