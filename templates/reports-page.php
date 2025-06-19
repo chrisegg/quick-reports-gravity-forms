@@ -402,33 +402,4 @@ $end_date = isset($_GET['end']) ? sanitize_text_field($_GET['end']) : date('Y-m-
             ?>
         </div>
     <?php endif; ?>
-</div>
-
-<?php
-/**
- * Get daily entry counts for chart
- */
-function gf_quickreports_get_daily_entries($form_id, $start_date, $end_date) {
-    $daily_entries = array();
-    
-    if (!$start_date || !$end_date) {
-        return $daily_entries;
-    }
-
-    $current_date = $start_date;
-    while (strtotime($current_date) <= strtotime($end_date)) {
-        $search_criteria = array(
-            'status' => 'active',
-            'start_date' => $current_date . ' 00:00:00',
-            'end_date' => $current_date . ' 23:59:59'
-        );
-        
-        $count = GFAPI::count_entries($form_id, $search_criteria);
-        $daily_entries[date('M j', strtotime($current_date))] = $count;
-        
-        $current_date = date('Y-m-d', strtotime($current_date . ' +1 day'));
-    }
-    
-    return $daily_entries;
-}
-?> 
+</div> 
