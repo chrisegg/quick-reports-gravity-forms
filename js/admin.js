@@ -44,10 +44,11 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // CSV Export functionality
-    $('#export-csv').on('click', function(e) {
+    // Export functionality
+    $('#export-csv, #export-pdf').on('click', function(e) {
         e.preventDefault();
-        exportCSV();
+        var exportType = $(this).attr('id').replace('export-', '');
+        exportReport(exportType);
     });
     
     // Form validation
@@ -271,9 +272,9 @@ jQuery(document).ready(function($) {
     }
     
     /**
-     * Export CSV functionality
+     * Export functionality
      */
-    function exportCSV() {
+    function exportReport(type) {
         var formId = $('#form_id').val();
         var startDate = $('#start_date').val();
         var endDate = $('#end_date').val();
@@ -284,17 +285,28 @@ jQuery(document).ready(function($) {
         }
         
         // Show loading state
-        var $button = $('#export-csv');
+        var $button = $('#export-' + type);
         var originalText = $button.text();
         $button.text('Exporting...').prop('disabled', true);
         
         // Create form data for AJAX
         var formData = new FormData();
-        formData.append('action', 'gf_reports_export_csv');
+        formData.append('action', 'gf_reports_export_' + type);
         formData.append('nonce', gf_reports_ajax.nonce);
         formData.append('form_id', formId);
         formData.append('start_date', startDate);
         formData.append('end_date', endDate);
+
+        // For PDF export, include the chart as an image
+        if (type === 'pdf' && window.currentChart) {
+            try {
+                var chartCanvas = document.getElementById('entriesChart');
+                var chartImage = chartCanvas.toDataURL('image/png');
+                formData.append('chart_data', chartImage);
+            } catch (e) {
+                console.error('Failed to get chart image:', e);
+            }
+        }
         
         // Make AJAX request
         $.ajax({
@@ -304,18 +316,31 @@ jQuery(document).ready(function($) {
             processData: false,
             contentType: false,
             success: function(response) {
-                // Create download link
-                var blob = new Blob([response], { type: 'text/csv' });
-                var url = window.URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = 'gf-reports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.csv';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
+                if (type === 'csv') {
+                    // Create download link for CSV
+                    var blob = new Blob([response], { type: 'text/csv' });
+                    var url = window.URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'gf-reports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.' + type;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                } else if (type === 'pdf') {
+                    // For PDF, the response is already a PDF file
+                    var blob = new Blob([response], { type: 'application/pdf' });
+                    var url = window.URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'gf-reports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }
                 
-                showNotice('CSV export completed successfully!', 'success');
+                showNotice(type.toUpperCase() + ' export completed successfully!', 'success');
             },
             error: function(xhr, status, error) {
                 showNotice('Export failed. Please try again.', 'error');
