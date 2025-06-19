@@ -69,73 +69,126 @@ if (!defined('ABSPATH')) {
         </form>
         
         <?php if ($form_id > 0 || !empty($chart_data['data'])): ?>
-            <div class="gf-quickreports-results">
-                <!-- Export Buttons -->
-                <div class="export-buttons">
-                    <button type="button" id="export-csv" class="button">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                        </svg>
-                        <?php _e('Export CSV', 'gf-quickreports'); ?>
-                    </button>
-                    <button type="button" id="export-pdf" class="button">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M20,2H8A2,2 0 0,0 6,4V16A2,2 0 0,0 8,18H20A2,2 0 0,0 22,16V4A2,2 0 0,0 20,2M20,16H8V4H20V16M16,20V22H4A2,2 0 0,1 2,20V7H4V20H16Z"/>
-                        </svg>
-                        <?php _e('Export PDF', 'gf-quickreports'); ?>
-                    </button>
-                </div>
+            <!-- Report Summary -->
+            <div class="report-summary">
+                <h2><?php _e('Report Summary', 'gf-quickreports'); ?></h2>
                 
-                <!-- Chart Container -->
-                <div class="chart-container">
-                    <canvas id="entriesChart"></canvas>
-                    <div id="chartjs-no-data"><?php _e('No data available for the selected criteria.', 'gf-quickreports'); ?></div>
+                <div class="summary-stats">
+                    <div class="stat-card">
+                        <h3><?php _e('Total Entries', 'gf-quickreports'); ?></h3>
+                        <div class="stat-number"><?php echo number_format(array_sum($chart_data['data'])); ?></div>
+                        <div class="stat-text"><?php _e('submissions', 'gf-quickreports'); ?></div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3><?php _e('Date Range', 'gf-quickreports'); ?></h3>
+                        <div class="stat-number">
+                            <?php 
+                            if (!empty($start_date) && !empty($end_date)) {
+                                echo esc_html($start_date) . ' - ' . esc_html($end_date);
+                            } elseif (!empty($start_date)) {
+                                echo esc_html($start_date) . ' - ' . __('Present', 'gf-quickreports');
+                            } elseif (!empty($end_date)) {
+                                echo __('All Time', 'gf-quickreports') . ' - ' . esc_html($end_date);
+                            } else {
+                                _e('All Time', 'gf-quickreports');
+                            }
+                            ?>
+                        </div>
+                        <div class="stat-text"><?php _e('period', 'gf-quickreports'); ?></div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3><?php _e('Form', 'gf-quickreports'); ?></h3>
+                        <div class="stat-number">
+                            <?php 
+                            if ($form_id > 0) {
+                                $form = GFAPI::get_form($form_id);
+                                echo esc_html($form['title']);
+                            } else {
+                                _e('All Forms', 'gf-quickreports');
+                            }
+                            ?>
+                        </div>
+                        <div class="stat-text"><?php _e('selected', 'gf-quickreports'); ?></div>
+                    </div>
+                    
+                    <?php if (!empty($chart_data['data']) && count($chart_data['data']) > 1): ?>
+                        <div class="stat-card">
+                            <h3><?php _e('Average Daily', 'gf-quickreports'); ?></h3>
+                            <div class="stat-number"><?php echo number_format(array_sum($chart_data['data']) / count($chart_data['data']), 1); ?></div>
+                            <div class="stat-text"><?php _e('entries', 'gf-quickreports'); ?></div>
+                        </div>
+                    <?php endif; ?>
                 </div>
-                
-                <!-- Recent Entries -->
-                <?php if (!empty($recent_entries)): ?>
-                    <div class="recent-entries">
-                        <h3><?php _e('Recent Entries', 'gf-quickreports'); ?></h3>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th><?php _e('Entry ID', 'gf-quickreports'); ?></th>
-                                    <th><?php _e('Date', 'gf-quickreports'); ?></th>
-                                    <th><?php _e('IP', 'gf-quickreports'); ?></th>
-                                    <?php if ($form_id > 0): ?>
-                                        <?php 
-                                        $form = GFAPI::get_form($form_id);
-                                        if ($form) {
-                                            foreach ($form['fields'] as $field) {
-                                                if (!$field['adminOnly']) {
-                                                    echo '<th>' . esc_html($field['label']) . '</th>';
-                                                }
+            </div>
+            
+            <!-- Export Buttons -->
+            <div class="export-buttons">
+                <button type="button" id="export-csv" class="button button-secondary">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                    </svg>
+                    <?php _e('Export CSV', 'gf-quickreports'); ?>
+                </button>
+                <button type="button" id="export-pdf" class="button button-secondary">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20,2H8A2,2 0 0,0 6,4V16A2,2 0 0,0 8,18H20A2,2 0 0,0 22,16V4A2,2 0 0,0 20,2M20,16H8V4H20V16M16,20V22H4A2,2 0 0,1 2,20V7H4V20H16Z"/>
+                    </svg>
+                    <?php _e('Export PDF', 'gf-quickreports'); ?>
+                </button>
+            </div>
+            
+            <!-- Chart Container -->
+            <div class="chart-container">
+                <h3><?php _e('Entries Over Time', 'gf-quickreports'); ?></h3>
+                <canvas id="entriesChart"></canvas>
+                <div id="chartjs-no-data"><?php _e('No data available for the selected criteria.', 'gf-quickreports'); ?></div>
+            </div>
+            
+            <!-- Recent Entries -->
+            <?php if (!empty($recent_entries)): ?>
+                <div class="recent-entries">
+                    <h3><?php _e('Recent Entries', 'gf-quickreports'); ?></h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><?php _e('Entry ID', 'gf-quickreports'); ?></th>
+                                <th><?php _e('Date', 'gf-quickreports'); ?></th>
+                                <th><?php _e('IP', 'gf-quickreports'); ?></th>
+                                <?php if ($form_id > 0): ?>
+                                    <?php 
+                                    $form = GFAPI::get_form($form_id);
+                                    if ($form) {
+                                        foreach ($form['fields'] as $field) {
+                                            if (!$field['adminOnly']) {
+                                                echo '<th>' . esc_html($field['label']) . '</th>';
                                             }
                                         }
-                                        ?>
+                                    }
+                                    ?>
+                                <?php endif; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recent_entries as $entry): ?>
+                                <tr>
+                                    <td><?php echo esc_html($entry['id']); ?></td>
+                                    <td><?php echo esc_html($entry['date_created']); ?></td>
+                                    <td><?php echo esc_html($entry['ip']); ?></td>
+                                    <?php if ($form_id > 0 && isset($form)): ?>
+                                        <?php foreach ($form['fields'] as $field): ?>
+                                            <?php if (!$field['adminOnly']): ?>
+                                                <td><?php echo esc_html(rgar($entry, $field['id'])); ?></td>
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
                                     <?php endif; ?>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($recent_entries as $entry): ?>
-                                    <tr>
-                                        <td><?php echo esc_html($entry['id']); ?></td>
-                                        <td><?php echo esc_html($entry['date_created']); ?></td>
-                                        <td><?php echo esc_html($entry['ip']); ?></td>
-                                        <?php if ($form_id > 0 && isset($form)): ?>
-                                            <?php foreach ($form['fields'] as $field): ?>
-                                                <?php if (!$field['adminOnly']): ?>
-                                                    <td><?php echo esc_html(rgar($entry, $field['id'])); ?></td>
-                                                <?php endif; ?>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endif; ?>
-            </div>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
