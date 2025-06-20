@@ -1,47 +1,15 @@
 /**
- * Gravity Forms Reports Admin JavaScript
+ * Gravity Forms Quick Reports Admin JavaScript
  */
 
 jQuery(document).ready(function($) {
     
-    // Debug: Log what data we have
-    console.log('GF Reports Debug - Chart data:', typeof window.chartData !== 'undefined' ? window.chartData : 'undefined');
-    console.log('GF Reports Debug - Compare data:', typeof window.compareChartData !== 'undefined' ? window.compareChartData : 'undefined');
-    console.log('GF Reports Debug - Chart mode:', typeof window.chartMode !== 'undefined' ? window.chartMode : 'undefined');
-    console.log('GF Reports Debug - Chart.js loaded:', typeof Chart !== 'undefined');
-    console.log('GF Reports Debug - jQuery loaded:', typeof $ !== 'undefined');
-    console.log('GF Reports Debug - Canvas element exists:', $('#entriesChart').length > 0);
+    // Flag to track if comparison dropdown is being populated
+    var isPopulatingCompareDropdown = false;
     
     // Initialize chart if data is available
     if (typeof window.chartData !== 'undefined') {
-        // Try multiple times to ensure Chart.js is loaded
-        var attempts = 0;
-        var maxAttempts = 5;
-        
-        function tryInitChart() {
-            attempts++;
-            console.log('GF Reports Debug - Chart init attempt:', attempts);
-            
-            if (typeof Chart !== 'undefined') {
-                initializeChart();
-            } else if (attempts < maxAttempts) {
-                // Wait and try again
-                setTimeout(tryInitChart, 500);
-            } else {
-                console.error('Chart.js failed to load after', maxAttempts, 'attempts');
-                $('#entriesChart').hide();
-                $('#chartjs-no-data').text('Chart library failed to load. Please refresh the page.').show();
-            }
-        }
-        
-        tryInitChart();
-    } else {
-        console.log('GF Reports Debug - No chart data available');
-        // Still show the no data message if canvas exists
-        if ($('#entriesChart').length > 0) {
-            $('#entriesChart').hide();
-            $('#chartjs-no-data').show();
-        }
+        initializeChart();
     }
     
     // Export functionality
@@ -51,50 +19,109 @@ jQuery(document).ready(function($) {
         exportReport(exportType);
     });
     
-    // Form validation
-    $('.gf-reports-form').on('submit', function(e) {
+    // Form validation and submission handling
+    $('form').on('submit', function(e) {
         var formId = $('#form_id').val();
-        var startDate = $('#start_date').val();
-        var endDate = $('#end_date').val();
+        var preset = $('#date_preset').val();
+        var compareFormId = $('#compare_form_id').val();
         
+        console.log('Form submission - Form ID:', formId);
+        console.log('Form submission - Compare Form ID from dropdown:', compareFormId);
+        console.log('Form submission - Compare Form ID from URL:', new URLSearchParams(window.location.search).get('compare_form_id'));
+        console.log('Form submission - Is populating compare dropdown:', isPopulatingCompareDropdown);
+        
+        // Check form selection
         if (!formId) {
             e.preventDefault();
             showNotice('Please select a form to generate a report.', 'error');
             return false;
         }
         
-        if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+        // If the comparison dropdown is still being populated, wait a moment
+        if (isPopulatingCompareDropdown) {
+            console.log('Waiting for comparison dropdown to finish populating...');
+            setTimeout(function() {
+                $('form').submit();
+            }, 100);
+            e.preventDefault();
+            return false;
+        }
+        
+        // Preserve comparison form selection by updating hidden input
+        if (compareFormId) {
+            $('#current_compare_form_id').val(compareFormId);
+            console.log('Preserving comparison form ID:', compareFormId);
+        } else {
+            // If no value in dropdown, try to get from URL
+            var urlCompareFormId = new URLSearchParams(window.location.search).get('compare_form_id');
+            if (urlCompareFormId) {
+                $('#current_compare_form_id').val(urlCompareFormId);
+                console.log('Preserving comparison form ID from URL:', urlCompareFormId);
+            }
+        }
+        
+        // Handle date preset validation
+        if (preset !== 'custom') {
+            // For non-custom presets, we don't need to validate date fields
+            // The server will handle the preset logic
+            return true;
+        }
+        
+        // For custom range, validate the date fields
+        var startDate = $('#start_date').val();
+        var endDate = $('#end_date').val();
+        
+        if (!startDate || !endDate) {
+            e.preventDefault();
+            showNotice('Please select both start and end dates for custom range.', 'error');
+            return false;
+        }
+        
+        if (new Date(startDate) > new Date(endDate)) {
             e.preventDefault();
             showNotice('Start date cannot be after end date.', 'error');
             return false;
         }
     });
     
-    // Date range presets
-    addDatePresets();
-    
-    // Auto-submit on form change (optional)
+    // Form selection change - update compare form options
     $('#form_id').on('change', function() {
-        if ($(this).val()) {
-            // Uncomment the line below to auto-submit when form is selected
-            // $('.gf-reports-form').submit();
+        var selectedForm = $(this).val();
+        console.log('Form selection changed to:', selectedForm);
+        
+        // Immediately update compare form options
+        if (selectedForm && selectedForm !== 'all') {
+            console.log('Selected form is valid, updating compare options');
+            // Enable and populate compare form dropdown immediately
+            updateCompareFormOptions(selectedForm);
+        } else {
+            console.log('Selected form is invalid or "all", disabling compare dropdown');
+            // Disable compare form dropdown for "All Forms" or no selection
+            $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
+        }
+        
+        updateChartViewVisibility(selectedForm);
+    });
+    
+    // Date preset change
+    $('#date_preset').on('change', function() {
+        var preset = $(this).val();
+        if (preset !== 'custom') {
+            updateDateFields(preset);
+        } else {
+            showDateFields();
         }
     });
     
-    function formatFormLabel(label) {
-        // Remove extra spaces and trim
-        return label.replace(/\s+/g, ' ').trim();
-    }
+    // Date preset functionality
+    addDatePresets();
     
     /**
      * Initialize Chart.js for entries over time
      */
     function initializeChart() {
-        console.log('GF Reports Debug - Initializing chart...');
-        
         var canvas = document.getElementById('entriesChart');
         if (!canvas) {
-            console.error('GF Reports Debug - Canvas element not found');
             return;
         }
         
@@ -106,16 +133,13 @@ jQuery(document).ready(function($) {
             var chartData = window.chartData;
             var compareChartData = window.compareChartData;
 
-            console.log('GF Reports Debug - Mode:', mode);
-            console.log('GF Reports Debug - Chart data:', chartData);
-
             // Main form dataset
             if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
                 hasData = true;
                 var formLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                     formatFormLabel(window.selectedFormLabel) : 
                     formatFormLabel($('#form_id option:selected').text() || 'Form 1');
-                console.log('GF Reports Debug - Adding main dataset:', formLabel);
+                
                 datasets.push({
                     label: formLabel,
                     data: mode === 'total' ? [chartData.data.reduce((a,b)=>a+b,0)] : chartData.data,
@@ -135,7 +159,6 @@ jQuery(document).ready(function($) {
             // Individual forms datasets (for "All Forms" view)
             if (typeof window.individualFormsData !== 'undefined' && window.individualFormsData.length > 0 && 
                 typeof window.chartView !== 'undefined' && window.chartView === 'individual') {
-                console.log('GF Reports Debug - Adding individual forms datasets:', window.individualFormsData.length);
                 hasData = true;
                 
                 // Add each individual form as a separate dataset
@@ -153,7 +176,7 @@ jQuery(document).ready(function($) {
             if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
                 hasData = true;
                 var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Form 2');
-                console.log('GF Reports Debug - Adding compare dataset:', compareLabel);
+                
                 datasets.push({
                     label: compareLabel,
                     data: mode === 'total' ? [compareChartData.data.reduce((a,b)=>a+b,0)] : compareChartData.data,
@@ -172,7 +195,6 @@ jQuery(document).ready(function($) {
             
             // No data
             if (!hasData) {
-                console.log('GF Reports Debug - No data available for chart');
                 $('#entriesChart').hide();
                 $('#chartjs-no-data').show();
                 return;
@@ -184,10 +206,6 @@ jQuery(document).ready(function($) {
             // Chart type and labels
             var chartType = (mode === 'total') ? 'bar' : 'line';
             var labels = (mode === 'total') ? ['Total'] : (chartData.labels || []);
-            
-            console.log('GF Reports Debug - Chart type:', chartType);
-            console.log('GF Reports Debug - Labels:', labels);
-            console.log('GF Reports Debug - Datasets:', datasets);
             
             window.currentChart = new Chart(ctx, {
                 type: chartType,
@@ -262,30 +280,31 @@ jQuery(document).ready(function($) {
                 }
             });
             
-            console.log('GF Reports Debug - Chart created successfully:', window.currentChart);
-            
         } catch (error) {
-            console.error('GF Reports Debug - Error creating chart:', error);
             $('#entriesChart').hide();
             $('#chartjs-no-data').text('Error creating chart: ' + error.message).show();
         }
     }
     
     /**
-     * Export functionality
+     * Export report as CSV or PDF
      */
     function exportReport(type) {
-        console.log('GF Reports Debug - Starting export:', type);
         var formId = $('#form_id').val();
         var startDate = $('#start_date').val();
         var endDate = $('#end_date').val();
+        var compareFormId = $('#compare_form_id').val();
         
-        console.log('GF Reports Debug - Export parameters:', {
-            formId: formId,
-            startDate: startDate,
-            endDate: endDate,
-            type: type
-        });
+        console.log('Export called with type:', type);
+        console.log('Form ID:', formId);
+        console.log('Compare Form ID from dropdown:', compareFormId);
+        console.log('Compare Form ID from URL:', new URLSearchParams(window.location.search).get('compare_form_id'));
+        
+        // If no comparison form ID from dropdown, try to get it from URL
+        if (!compareFormId) {
+            compareFormId = new URLSearchParams(window.location.search).get('compare_form_id');
+            console.log('Using comparison form ID from URL:', compareFormId);
+        }
         
         if (!formId) {
             showNotice('Please select a form to export.', 'error');
@@ -299,30 +318,36 @@ jQuery(document).ready(function($) {
         
         // Create form data for AJAX
         var formData = new FormData();
-        formData.append('action', 'gf_reports_export_' + type);
-        formData.append('nonce', gf_reports_ajax.nonce);
+        formData.append('action', 'gf_quickreports_export_' + type);
+        formData.append('nonce', gf_quickreports_ajax.nonce);
         formData.append('form_id', formId);
         formData.append('start_date', startDate);
         formData.append('end_date', endDate);
+        
+        // Add comparison form ID if selected
+        if (compareFormId) {
+            console.log('Adding comparison form ID to export:', compareFormId);
+            formData.append('compare_form_id', compareFormId);
+        } else {
+            console.log('No comparison form ID to add');
+        }
 
         // For PDF export, include the chart as an image
         if (type === 'pdf' && window.currentChart) {
             try {
-                console.log('GF Reports Debug - Adding chart to PDF export');
                 var chartCanvas = document.getElementById('entriesChart');
                 var chartImage = chartCanvas.toDataURL('image/png');
                 formData.append('chart_data', chartImage);
-                console.log('GF Reports Debug - Chart data length:', chartImage.length);
             } catch (e) {
-                console.error('GF Reports Debug - Failed to get chart image:', e);
+                showNotice('Error capturing chart for PDF. Please try again.', 'error');
+                $button.text(originalText).prop('disabled', false);
+                return;
             }
         }
         
-        console.log('GF Reports Debug - Making AJAX request to:', gf_reports_ajax.ajax_url);
-        
         // Make AJAX request
         $.ajax({
-            url: gf_reports_ajax.ajax_url,
+            url: gf_quickreports_ajax.ajax_url,
             type: 'POST',
             data: formData,
             processData: false,
@@ -333,8 +358,6 @@ jQuery(document).ready(function($) {
                 return xhr;
             },
             success: function(response) {
-                console.log('GF Reports Debug - Export successful, response type:', typeof response);
-                
                 try {
                     // Create blob from response
                     var blob;
@@ -344,13 +367,11 @@ jQuery(document).ready(function($) {
                         blob = new Blob([response], { type: 'text/csv;charset=utf-8' });
                     }
                     
-                    console.log('GF Reports Debug - Created blob, size:', blob.size);
-                    
                     // Create and trigger download
                     var url = window.URL.createObjectURL(blob);
                     var a = document.createElement('a');
                     a.href = url;
-                    a.download = 'gf-reports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.' + type;
+                    a.download = 'gf-quickreports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.' + type;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -358,17 +379,11 @@ jQuery(document).ready(function($) {
                     
                     showNotice(type.toUpperCase() + ' export completed successfully!', 'success');
                 } catch (e) {
-                    console.error('GF Reports Debug - Error processing response:', e);
                     showNotice('Error processing ' + type.toUpperCase() + ' export response.', 'error');
                 }
             },
-            error: function(xhr, status, error) {
-                console.error('GF Reports Debug - Export error:', {
-                    status: status,
-                    error: error,
-                    response: xhr.responseText
-                });
-                showNotice('Export failed. Please check browser console for details.', 'error');
+            error: function() {
+                showNotice('Export failed. Please try again.', 'error');
             },
             complete: function() {
                 $button.text(originalText).prop('disabled', false);
@@ -377,78 +392,109 @@ jQuery(document).ready(function($) {
     }
     
     /**
+     * Format form label for chart display
+     */
+    function formatFormLabel(label) {
+        return label.replace(/\s+/g, ' ').trim();
+    }
+    
+    /**
      * Add date range presets
      */
     function addDatePresets() {
-        var $filterRow = $('.filter-row').last();
-        var $presetsDiv = $('<div class="filter-row">');
-        var $presetsLabel = $('<label>Date Presets:</label>');
-        var $presetsSelect = $('<select id="date-presets">');
+        // Initialize compare form options on page load
+        var selectedForm = $('#form_id').val();
+        var currentCompareFormId = $('#current_compare_form_id').val();
+        var existingCompareFormId = $('#compare_form_id').val();
         
-        var presets = [
-            { label: 'Custom Range', value: 'custom' },
-            { label: 'Last 7 Days', value: '7days' },
-            { label: 'Last 30 Days', value: '30days' },
-            { label: 'Last 90 Days', value: '90days' },
-            { label: 'This Month', value: 'this-month' },
-            { label: 'Last Month', value: 'last-month' },
-            { label: 'This Year', value: 'this-year' }
-        ];
+        console.log('Initializing page with form ID:', selectedForm);
+        console.log('Current compare form ID from hidden input:', currentCompareFormId);
+        console.log('Existing compare form ID from dropdown:', existingCompareFormId);
         
-        presets.forEach(function(preset) {
-            $presetsSelect.append($('<option>', {
-                value: preset.value,
-                text: preset.label
-            }));
-        });
-        
-        $presetsDiv.append($presetsLabel).append($presetsSelect);
-        $filterRow.after($presetsDiv);
-        
-        // Handle preset changes
-        $presetsSelect.on('change', function() {
-            var preset = $(this).val();
-            var startDate = '';
-            var endDate = new Date().toISOString().split('T')[0];
-            
-            switch(preset) {
-                case '7days':
-                    startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    break;
-                case '30days':
-                    startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    break;
-                case '90days':
-                    startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                    break;
-                case 'this-month':
-                    startDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-                    break;
-                case 'last-month':
-                    var lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
-                    startDate = lastMonth.toISOString().split('T')[0];
-                    endDate = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString().split('T')[0];
-                    break;
-                case 'this-year':
-                    startDate = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
-                    break;
-                default:
-                    return; // Custom range - don't change dates
+        if (selectedForm && selectedForm !== 'all') {
+            // If a form is selected and there's a comparison form already selected, populate the dropdown
+            if (currentCompareFormId || existingCompareFormId) {
+                var compareFormIdToUse = currentCompareFormId || existingCompareFormId;
+                console.log('Populating compare dropdown with preserved value:', compareFormIdToUse);
+                updateCompareFormOptions(selectedForm, compareFormIdToUse);
+            } else {
+                console.log('No preserved comparison form, populating dropdown normally');
+                updateCompareFormOptions(selectedForm);
             }
-            
+        } else {
+            console.log('No valid form selected or "All Forms" selected, disabling compare dropdown');
+            // Disable compare form dropdown for "All Forms" or no selection
+            $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
+        }
+        
+        updateChartViewVisibility(selectedForm);
+        
+        // Initialize date preset and fields on page load
+        var selectedPreset = $('#date_preset').val();
+        if (selectedPreset && selectedPreset !== 'custom') {
+            // If a preset is selected, hide date fields and update them
+            hideDateFields();
+            updateDateFieldsFromPreset(selectedPreset);
+        } else {
+            showDateFields();
+        }
+    }
+    
+    /**
+     * Update date fields from preset without AJAX (for initialization)
+     */
+    function updateDateFieldsFromPreset(preset) {
+        var startDate = '';
+        var endDate = '';
+        
+        switch(preset) {
+            case 'today':
+                startDate = new Date().toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case 'yesterday':
+                startDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                break;
+            case '7days':
+                startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case '30days':
+                startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case '60days':
+                startDate = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case '90days':
+                startDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case 'year_to_date':
+                startDate = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+                endDate = new Date().toISOString().split('T')[0];
+                break;
+            case 'last_year':
+                startDate = new Date(new Date().getFullYear() - 1, 0, 1).toISOString().split('T')[0];
+                endDate = new Date(new Date().getFullYear() - 1, 11, 31).toISOString().split('T')[0];
+                break;
+        }
+        
+        if (startDate && endDate) {
             $('#start_date').val(startDate);
             $('#end_date').val(endDate);
-        });
+        }
     }
     
     /**
      * Show notice messages
      */
     function showNotice(message, type) {
-        var $notice = $('<div class="gf-reports-notice ' + type + '">' + message + '</div>');
+        var $notice = $('<div class="gf-quickreports-notice ' + type + '">' + message + '</div>');
         $('.wrap h1').after($notice);
         
-        // Auto-remove after 5 seconds
         setTimeout(function() {
             $notice.fadeOut(function() {
                 $(this).remove();
@@ -456,14 +502,22 @@ jQuery(document).ready(function($) {
         }, 5000);
     }
     
-    /**
-     * Add keyboard shortcuts
-     */
+    // Handle chart view change for "All Forms"
+    $('#chart_view').on('change', function() {
+        window.chartView = $(this).val();
+        if (window.currentChart) {
+            window.currentChart.destroy();
+            window.currentChart = null;
+        }
+        initializeChart();
+    });
+    
+    // Add keyboard shortcuts
     $(document).on('keydown', function(e) {
         // Ctrl/Cmd + Enter to submit form
         if ((e.ctrlKey || e.metaKey) && e.keyCode === 13) {
             e.preventDefault();
-            $('.gf-reports-form').submit();
+            $('.gf-quickreports-form').submit();
         }
         
         // Ctrl/Cmd + E to export CSV
@@ -475,16 +529,7 @@ jQuery(document).ready(function($) {
         }
     });
     
-    /**
-     * Add tooltips for better UX
-     */
-    $('[title]').tooltip({
-        position: { my: 'left+5 center', at: 'right center' }
-    });
-    
-    /**
-     * Responsive table handling
-     */
+    // Handle responsive table
     function handleResponsiveTable() {
         var $table = $('.recent-entries table');
         var $container = $('.recent-entries');
@@ -496,47 +541,125 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // Handle responsive table on load and resize
     handleResponsiveTable();
     $(window).on('resize', handleResponsiveTable);
     
     /**
-     * Add loading states
+     * Update compare form options via AJAX
      */
-    $('.gf-reports-form').on('submit', function() {
-        $('.gf-reports-results').addClass('gf-reports-loading');
-    });
-    
-    // Remove loading state when page loads
-    $(window).on('load', function() {
-        $('.gf-reports-results').removeClass('gf-reports-loading');
-    });
-    
-    // Handle chart view change for "All Forms"
-    $('#chart_view').on('change', function() {
-        console.log('GF Reports Debug - Chart view changed to:', $(this).val());
+    function updateCompareFormOptions(selectedForm, preserveValue) {
+        console.log('updateCompareFormOptions called with:', selectedForm, preserveValue);
         
-        // Update the chart view variable
-        window.chartView = $(this).val();
-        
-        // Show loading state
-        $('#entriesChart').hide();
-        $('#chartjs-no-data').text('Updating chart view...').show();
-        
-        // Reinitialize chart with new view
-        if (typeof Chart !== 'undefined' && typeof window.chartData !== 'undefined') {
-            // Destroy existing chart if it exists
-            if (window.currentChart) {
-                window.currentChart.destroy();
-                window.currentChart = null;
-            }
-            
-            // Small delay to show the loading message
-            setTimeout(function() {
-                // Reinitialize chart
-                initializeChart();
-            }, 100);
+        if (!selectedForm || selectedForm === 'all') {
+            console.log('No valid form selected, disabling compare dropdown');
+            $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
+            return;
         }
-    });
+        
+        isPopulatingCompareDropdown = true;
+        console.log('Making AJAX call to get compare forms');
+        console.log('AJAX URL:', gf_quickreports_ajax.ajax_url);
+        console.log('Nonce:', gf_quickreports_ajax.nonce);
+        $.ajax({
+            url: gf_quickreports_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'gf_quickreports_get_compare_forms',
+                nonce: gf_quickreports_ajax.nonce,
+                selected_form: selectedForm
+            },
+            success: function(response) {
+                console.log('AJAX response received:', response);
+                if (response.success) {
+                    var $select = $('#compare_form_id');
+                    $select.html('<option value="">Compare With...</option>');
+                    
+                    console.log('Adding options:', response.data.options);
+                    response.data.options.forEach(function(option) {
+                        var $option = $('<option>', {
+                            value: option.value,
+                            text: option.label
+                        });
+                        
+                        // Preserve the selected value if provided
+                        if (preserveValue && option.value == preserveValue) {
+                            console.log('Setting option as selected:', option.value, option.label);
+                            $option.prop('selected', true);
+                        }
+                        
+                        $select.append($option);
+                    });
+                    
+                    $select.prop('disabled', false);
+                    console.log('Compare dropdown updated successfully');
+                    console.log('Final selected value:', $select.val());
+                } else {
+                    console.error('AJAX response indicates failure:', response);
+                }
+                isPopulatingCompareDropdown = false;
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', status, error);
+                console.error('Response:', xhr.responseText);
+                showNotice('Error loading compare form options.', 'error');
+                isPopulatingCompareDropdown = false;
+            }
+        });
+    }
     
+    /**
+     * Update chart view visibility based on form selection
+     */
+    function updateChartViewVisibility(selectedForm) {
+        var $chartViewContainer = $('#chart_view').closest('.alignleft');
+        if (selectedForm === 'all') {
+            $chartViewContainer.show();
+        } else {
+            $chartViewContainer.hide();
+        }
+    }
+    
+    /**
+     * Update date fields based on preset
+     */
+    function updateDateFields(preset) {
+        $.ajax({
+            url: gf_quickreports_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'gf_quickreports_get_date_presets',
+                nonce: gf_quickreports_ajax.nonce,
+                preset: preset
+            },
+            success: function(response) {
+                if (response.success) {
+                    $('#start_date').val(response.data.start_date);
+                    $('#end_date').val(response.data.end_date);
+                    
+                    if (preset === 'custom') {
+                        showDateFields();
+                    } else {
+                        hideDateFields();
+                    }
+                }
+            },
+            error: function() {
+                showNotice('Error loading date preset.', 'error');
+            }
+        });
+    }
+    
+    /**
+     * Show date input fields
+     */
+    function showDateFields() {
+        $('.date-range-container').removeClass('hidden').show();
+    }
+    
+    /**
+     * Hide date input fields
+     */
+    function hideDateFields() {
+        $('.date-range-container').addClass('hidden');
+    }
 }); 

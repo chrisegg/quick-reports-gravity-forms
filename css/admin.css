@@ -1,56 +1,43 @@
-/* Gravity Forms Reports Admin Styles */
+/**
+ * Gravity Forms Quick Reports Admin Styles
+ */
 
-.gf-reports-filters {
-    background: none;
-    border: none;
-    box-shadow: none;
-    margin-bottom: 18px;
-    padding: 0;
+/* Container */
+.gf-quickreports-container {
+    max-width: 1200px;
+    margin: 20px 0;
+    padding: 0 20px;
 }
 
-.gf-reports-form {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 0;
+/* Form Styles */
+.gf-quickreports-form {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 20px;
 }
 
 .filter-row {
     display: flex;
-    flex-direction: column;
-    min-width: 0;
-    margin-bottom: 0;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 15px;
 }
 
 .filter-row label {
+    min-width: 100px;
     font-weight: 600;
-    color: #23282d;
-    font-size: 12px;
-    margin-bottom: 2px;
 }
 
 .filter-row select,
 .filter-row input[type="date"] {
-    padding: 6px 10px;
-    border: 1px solid #8c8f94;
+    flex: 1;
+    max-width: 200px;
+    height: 35px;
+    padding: 5px 10px;
+    border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
-    min-width: 120px;
-    min-height: 32px;
-}
-
-.filter-row select:focus,
-.filter-row input[type="date"]:focus {
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
-    outline: 2px solid transparent;
-}
-
-.filter-row .button {
-    min-height: 32px;
-    padding: 6px 14px;
-    margin-top: 0;
 }
 
 /* Report Summary */
@@ -198,28 +185,182 @@
     background-color: #f6f7f7;
 }
 
+/* Table Scroll for Mobile */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Export Buttons */
+.export-buttons {
+    margin: 20px 0;
+    display: flex;
+    gap: 10px;
+}
+
+.export-buttons button {
+    padding: 8px 15px;
+    background: #2271b1;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.2s;
+}
+
+.export-buttons button:hover {
+    background: #135e96;
+}
+
+.export-buttons button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.export-buttons button svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+/* Button Styles */
+.button-secondary {
+    background: #f6f7f7;
+    border-color: #2271b1;
+    color: #2271b1;
+}
+
+.button-secondary:hover {
+    background: #f0f0f1;
+    border-color: #0a4b78;
+    color: #0a4b78;
+}
+
+/* Notices */
+.gf-quickreports-notice {
+    margin: 15px 0;
+    padding: 10px 15px;
+    border-radius: 4px;
+    border-left: 4px solid;
+}
+
+.gf-quickreports-notice.success {
+    background: #ecf7ed;
+    border-left-color: #46b450;
+    color: #1a4731;
+}
+
+.gf-quickreports-notice.error {
+    background: #fbeaea;
+    border-left-color: #dc3232;
+    color: #8a1f11;
+}
+
 /* Responsive Design */
 @media (max-width: 900px) {
-    .gf-reports-form {
+    .gf-quickreports-form {
         flex-wrap: wrap;
         gap: 10px;
     }
 }
 
 @media (max-width: 600px) {
-    .gf-reports-form {
+    .gf-quickreports-form {
         flex-direction: column;
         align-items: stretch;
     }
 }
 
+@media screen and (max-width: 782px) {
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    
+    .filter-row label {
+        min-width: auto;
+    }
+    
+    .filter-row select,
+    .filter-row input[type="date"] {
+        max-width: none;
+    }
+    
+    .export-buttons {
+        flex-direction: column;
+    }
+    
+    .chart-container {
+        height: 300px;
+    }
+    
+    .summary-stats {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .gf-quickreports-form,
+    .export-buttons {
+        display: none;
+    }
+    
+    .report-summary,
+    .chart-container,
+    .recent-entries {
+        border: 1px solid #000;
+        box-shadow: none;
+        page-break-inside: avoid;
+    }
+}
+
+/* Date Preset Styles */
+.date-range-container {
+    transition: all 0.3s ease;
+}
+
+.date-range-container.hidden {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Form Layout Improvements */
+.tablenav.top .alignleft.actions {
+    margin-right: 15px;
+    margin-bottom: 10px;
+}
+
+.tablenav.top .alignleft.actions:last-child {
+    margin-right: 0;
+}
+
+.tablenav.top .alignleft.actions select,
+.tablenav.top .alignleft.actions input[type="date"] {
+    min-width: 120px;
+}
+
+.tablenav.top .alignleft.actions input[type="date"] {
+    margin-right: 5px;
+}
+
+/* Compare Form Styles */
+#compare_form_id:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Loading States */
-.gf-reports-loading {
+.loading {
     opacity: 0.6;
     pointer-events: none;
 }
 
-.gf-reports-loading::after {
+.loading::after {
     content: '';
     position: absolute;
     top: 50%;
@@ -236,105 +377,4 @@
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-}
-
-/* Success/Error Messages */
-.gf-reports-notice {
-    padding: 12px 16px;
-    margin: 20px 0;
-    border-radius: 4px;
-    border-left: 4px solid;
-}
-
-.gf-reports-notice.success {
-    background: #f0f9ff;
-    border-color: #2271b1;
-    color: #0c4a6e;
-}
-
-.gf-reports-notice.error {
-    background: #fef2f2;
-    border-color: #dc2626;
-    color: #991b1b;
-}
-
-/* Button Styles */
-.button-secondary {
-    background: #f6f7f7;
-    border-color: #2271b1;
-    color: #2271b1;
-}
-
-.button-secondary:hover {
-    background: #f0f0f1;
-    border-color: #0a4b78;
-    color: #0a4b78;
-}
-
-/* Form Field Improvements */
-.gf-reports-form select option {
-    padding: 8px;
-}
-
-/* Accessibility */
-.gf-reports-filters:focus-within,
-.report-summary:focus-within,
-.chart-container:focus-within,
-.recent-entries:focus-within {
-    outline: 2px solid #2271b1;
-    outline-offset: 2px;
-}
-
-/* Print Styles */
-@media print {
-    .gf-reports-filters,
-    .button {
-        display: none;
-    }
-    
-    .report-summary,
-    .chart-container,
-    .recent-entries {
-        border: 1px solid #000;
-        box-shadow: none;
-        page-break-inside: avoid;
-    }
-}
-
-/* --- REPORT SUMMARY TABLE: Use WP List Table Classes --- */
-.report-summary-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 24px;
-}
-.report-summary-table th,
-.report-summary-table td {
-    padding: 12px;
-}
-.report-summary-table th {
-    background: #f6f7f7;
-    border-bottom: 1px solid #c3c4c7;
-    text-align: left;
-    font-weight: 600;
-    color: #23282d;
-    font-size: 13px;
-}
-.report-summary-table td {
-    border-bottom: 1px solid #f0f0f1;
-    font-size: 15px;
-    font-weight: 600;
-    color: #2271b1;
-    background: #fff;
-}
-.report-summary-table tr:last-child td {
-    border-bottom: none;
-}
-.report-summary-table {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    box-shadow: 0 1px 1px rgba(0,0,0,.04);
-}
-
-/* Remove old stat card/grid styles for summary */
-.report-summary, .summary-stats, .stat-card { all: unset; } 
+} 
