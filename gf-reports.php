@@ -98,7 +98,7 @@ class GF_QuickReports {
         // Enqueue Chart.js
         wp_enqueue_script(
             'chartjs',
-            'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js',
+            GF_QUICKREPORTS_PLUGIN_URL . 'assets/js/lib/chart.min.js',
             array(),
             '3.9.1',
             true
@@ -290,125 +290,62 @@ class GF_QuickReports {
      * Handle CSV export
      */
     public function handle_csv_export() {
-        try {
-            // Debug logging
-            error_log('GF QuickReports: CSV export called');
-            error_log('GF QuickReports: POST data: ' . print_r($_POST, true));
-            
-            check_ajax_referer('gf_quickreports_nonce', 'nonce');
-            
-            $current_user = wp_get_current_user();
-            
-            // Check if user is an admin or has GF permissions
-            if (!current_user_can('administrator') && !current_user_can('gravityforms_view_entries')) {
-                wp_die('Unauthorized');
-            }
-            
-            $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
-            $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
-            $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
-            $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
-            
-            error_log('GF QuickReports: Form ID: ' . $form_id);
-            error_log('GF QuickReports: Compare Form ID: ' . $compare_form_id);
-            error_log('GF QuickReports: Start Date: ' . $start_date);
-            error_log('GF QuickReports: End Date: ' . $end_date);
-            
-            $search_criteria = array('status' => 'active');
-            if ($start_date) {
-                $search_criteria['start_date'] = $start_date . ' 00:00:00';
-            }
-            if ($end_date) {
-                $search_criteria['end_date'] = $end_date . ' 23:59:59';
-            }
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+            wp_die('Security check failed');
+        }
 
-            // Clear any previous output and disable compression
-            if (ob_get_length()) ob_clean();
-            if (ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
-            
-            // Set headers for CSV download
-            header('Content-Type: text/csv; charset=utf-8');
-            header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . gmdate('Y-m-d') . '.csv"');
-            
-            $output = fopen('php://output', 'w');
-            fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // Add UTF-8 BOM
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
 
-            if ($form_id === 'all') {
-                // Export data for all forms
-                $forms = GFAPI::get_forms();
-                
-                // Write summary headers
-                fputcsv($output, array('Form Name', 'Total Entries', 'Average Per Day', 'Total Revenue'));
-                
-                $total_entries = 0;
-                $total_revenue = 0;
-                $total_days = 0;
-                
-                foreach ($forms as $form) {
-                    $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
-                    $entries = GFAPI::get_entries($form['id'], $search_criteria);
-                    $daily_entries = self::get_daily_entries($form['id'], $start_date, $end_date);
-                    $days_count = count($daily_entries);
-                    $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
-                    
-                    // Calculate revenue
-                    $form_revenue = 0;
-                    $product_fields = array();
-                    foreach ($form['fields'] as $field) {
-                        if (isset($field['type']) && $field['type'] === 'product') {
-                            $product_fields[] = $field['id'];
-                        }
-                    }
-                    
-                    if (!empty($product_fields) && !empty($entries)) {
-                        foreach ($entries as $entry) {
-                            foreach ($product_fields as $pid) {
-                                $val = rgar($entry, $pid);
-                                if (is_numeric($val)) {
-                                    $form_revenue += floatval($val);
-                                } elseif (is_array($val) && isset($val['price'])) {
-                                    $form_revenue += floatval($val['price']);
-                                } elseif (is_string($val)) {
-                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
-                                        $form_revenue += floatval(str_replace(',', '', $matches[1]));
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    fputcsv($output, array(
-                        $form['title'],
-                        $entry_count,
-                        number_format($avg_per_day, 2),
-                        !empty($product_fields) ? '$' . number_format($form_revenue, 2) : 'N/A'
-                    ));
-                    
-                    $total_entries += $entry_count;
-                    $total_revenue += $form_revenue;
-                    $total_days = max($total_days, $days_count);
-                }
-                
-                // Write totals
-                fputcsv($output, array(''));
-                fputcsv($output, array(
-                    'TOTAL',
-                    $total_entries,
-                    $total_days > 0 ? number_format($total_entries / $total_days, 2) : '0.00',
-                    '$' . number_format($total_revenue, 2)
-                ));
-                
-            } else {
-                // Export data for single form
-                $form = GFAPI::get_form($form_id);
-                $entries = GFAPI::get_entries($form_id, $search_criteria);
-                $entry_count = count($entries);
-                $daily_entries = self::get_daily_entries($form_id, $start_date, $end_date);
+        // Get form data
+        $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
+        $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
+        $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+        $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+
+        // Get search criteria
+        $search_criteria = array('status' => 'active');
+        if (!empty($start_date)) {
+            $search_criteria['start_date'] = $start_date . ' 00:00:00';
+        }
+        if (!empty($end_date)) {
+            $search_criteria['end_date'] = $end_date . ' 23:59:59';
+        }
+
+        // Clear any previous output and disable compression
+        if (ob_get_length()) ob_clean();
+        if (ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
+        
+        // Set headers for CSV download
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . gmdate('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // Add UTF-8 BOM
+
+        if ($form_id === 'all') {
+            // Export data for all forms
+            $forms = GFAPI::get_forms();
+            
+            // Write summary headers
+            fputcsv($output, array('Form Name', 'Total Entries', 'Average Per Day', 'Total Revenue'));
+            
+            $total_entries = 0;
+            $total_revenue = 0;
+            $total_days = 0;
+            
+            foreach ($forms as $form) {
+                $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
+                $entries = GFAPI::get_entries($form['id'], $search_criteria);
+                $daily_entries = self::get_daily_entries($form['id'], $start_date, $end_date);
                 $days_count = count($daily_entries);
                 $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
                 
                 // Calculate revenue
-                $total_revenue = 0;
+                $form_revenue = 0;
                 $product_fields = array();
                 foreach ($form['fields'] as $field) {
                     if (isset($field['type']) && $field['type'] === 'product') {
@@ -421,133 +358,168 @@ class GF_QuickReports {
                         foreach ($product_fields as $pid) {
                             $val = rgar($entry, $pid);
                             if (is_numeric($val)) {
-                                $total_revenue += floatval($val);
+                                $form_revenue += floatval($val);
                             } elseif (is_array($val) && isset($val['price'])) {
-                                $total_revenue += floatval($val['price']);
+                                $form_revenue += floatval($val['price']);
                             } elseif (is_string($val)) {
                                 if (preg_match('/([\d\.,]+)/', $val, $matches)) {
-                                    $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    $form_revenue += floatval(str_replace(',', '', $matches[1]));
                                 }
                             }
                         }
                     }
                 }
-
-                // Write summary data for main form
-                fputcsv($output, array('Form Name', 'Total Entries', 'Average Per Day', 'Total Revenue'));
+                
                 fputcsv($output, array(
                     $form['title'],
                     $entry_count,
                     number_format($avg_per_day, 2),
-                    !empty($product_fields) ? '$' . number_format($total_revenue, 2) : 'N/A'
+                    !empty($product_fields) ? '$' . number_format($form_revenue, 2) : 'N/A'
                 ));
                 
-                // Add comparison form data if selected
-                if ($compare_form_id) {
-                    error_log('GF QuickReports: Processing comparison form data for form ID: ' . $compare_form_id);
-                    $compare_form = GFAPI::get_form($compare_form_id);
-                    $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria);
-                    $compare_entry_count = count($compare_entries);
-                    $compare_daily_entries = self::get_daily_entries($compare_form_id, $start_date, $end_date);
-                    $compare_days_count = count($compare_daily_entries);
-                    $compare_avg_per_day = $compare_days_count > 0 ? $compare_entry_count / $compare_days_count : 0;
-                    
-                    error_log('GF QuickReports: Comparison form: ' . $compare_form['title']);
-                    error_log('GF QuickReports: Comparison entries: ' . $compare_entry_count);
-                    
-                    // Calculate comparison form revenue
-                    $compare_total_revenue = 0;
-                    $compare_product_fields = array();
-                    foreach ($compare_form['fields'] as $field) {
-                        if (isset($field['type']) && $field['type'] === 'product') {
-                            $compare_product_fields[] = $field['id'];
+                $total_entries += $entry_count;
+                $total_revenue += $form_revenue;
+                $total_days = max($total_days, $days_count);
+            }
+            
+            // Write totals
+            fputcsv($output, array(''));
+            fputcsv($output, array(
+                'TOTAL',
+                $total_entries,
+                $total_days > 0 ? number_format($total_entries / $total_days, 2) : '0.00',
+                '$' . number_format($total_revenue, 2)
+            ));
+            
+        } else {
+            // Export data for single form
+            $form = GFAPI::get_form($form_id);
+            $entries = GFAPI::get_entries($form_id, $search_criteria);
+            $entry_count = count($entries);
+            $daily_entries = self::get_daily_entries($form_id, $start_date, $end_date);
+            $days_count = count($daily_entries);
+            $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
+            
+            // Calculate revenue
+            $total_revenue = 0;
+            $product_fields = array();
+            foreach ($form['fields'] as $field) {
+                if (isset($field['type']) && $field['type'] === 'product') {
+                    $product_fields[] = $field['id'];
+                }
+            }
+            
+            if (!empty($product_fields) && !empty($entries)) {
+                foreach ($entries as $entry) {
+                    foreach ($product_fields as $pid) {
+                        $val = rgar($entry, $pid);
+                        if (is_numeric($val)) {
+                            $total_revenue += floatval($val);
+                        } elseif (is_array($val) && isset($val['price'])) {
+                            $total_revenue += floatval($val['price']);
+                        } elseif (is_string($val)) {
+                            if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                            }
                         }
                     }
-                    
-                    if (!empty($compare_product_fields) && !empty($compare_entries)) {
-                        foreach ($compare_entries as $entry) {
-                            foreach ($compare_product_fields as $pid) {
-                                $val = rgar($entry, $pid);
-                                if (is_numeric($val)) {
-                                    $compare_total_revenue += floatval($val);
-                                } elseif (is_array($val) && isset($val['price'])) {
-                                    $compare_total_revenue += floatval($val['price']);
-                                } elseif (is_string($val)) {
-                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
-                                        $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
-                                    }
+                }
+            }
+
+            // Write summary data for main form
+            fputcsv($output, array('Form Name', 'Total Entries', 'Average Per Day', 'Total Revenue'));
+            fputcsv($output, array(
+                $form['title'],
+                $entry_count,
+                number_format($avg_per_day, 2),
+                !empty($product_fields) ? '$' . number_format($total_revenue, 2) : 'N/A'
+            ));
+            
+            // Add comparison form data if selected
+            if ($compare_form_id) {
+                $compare_form = GFAPI::get_form($compare_form_id);
+                $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria);
+                $compare_entry_count = count($compare_entries);
+                $compare_daily_entries = self::get_daily_entries($compare_form_id, $start_date, $end_date);
+                $compare_days_count = count($compare_daily_entries);
+                $compare_avg_per_day = $compare_days_count > 0 ? $compare_entry_count / $compare_days_count : 0;
+                
+                // Calculate comparison form revenue
+                $compare_total_revenue = 0;
+                $compare_product_fields = array();
+                foreach ($compare_form['fields'] as $field) {
+                    if (isset($field['type']) && $field['type'] === 'product') {
+                        $compare_product_fields[] = $field['id'];
+                    }
+                }
+                
+                if (!empty($compare_product_fields) && !empty($compare_entries)) {
+                    foreach ($compare_entries as $entry) {
+                        foreach ($compare_product_fields as $pid) {
+                            $val = rgar($entry, $pid);
+                            if (is_numeric($val)) {
+                                $compare_total_revenue += floatval($val);
+                            } elseif (is_array($val) && isset($val['price'])) {
+                                $compare_total_revenue += floatval($val['price']);
+                            } elseif (is_string($val)) {
+                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                    $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
                                 }
                             }
                         }
                     }
-                    
-                    error_log('GF QuickReports: Comparison revenue: ' . $compare_total_revenue);
-                    
-                    // Write comparison form data (always write, regardless of product fields)
-                    fputcsv($output, array(
-                        $compare_form['title'],
-                        $compare_entry_count,
-                        number_format($compare_avg_per_day, 2),
-                        !empty($compare_product_fields) ? '$' . number_format($compare_total_revenue, 2) : 'N/A'
-                    ));
-                } else {
-                    error_log('GF QuickReports: No comparison form ID provided');
                 }
+                
+                // Write comparison form data
+                fputcsv($output, array(
+                    $compare_form['title'],
+                    $compare_entry_count,
+                    number_format($compare_avg_per_day, 2),
+                    !empty($compare_product_fields) ? '$' . number_format($compare_total_revenue, 2) : 'N/A'
+                ));
             }
-            
-            fclose($output);
-            exit;
-            
-        } catch (Exception $e) {
-            error_log('GF QuickReports: CSV export error: ' . $e->getMessage());
-            wp_die('Error generating CSV: ' . esc_html($e->getMessage()));
         }
+        
+        fclose($output);
+        exit;
     }
 
     /**
      * Handle PDF export
      */
     public function handle_pdf_export() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+            wp_die('Security check failed');
+        }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+
+        // Get form data
+        $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
+        $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
+        $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+        $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+        $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
+
+        // Get search criteria
+        $search_criteria = array('status' => 'active');
+        if (!empty($start_date)) {
+            $search_criteria['start_date'] = $start_date . ' 00:00:00';
+        }
+        if (!empty($end_date)) {
+            $search_criteria['end_date'] = $end_date . ' 23:59:59';
+        }
+
         try {
-            // Debug logging
-            error_log('GF QuickReports: PDF export called');
-            error_log('GF QuickReports: POST data: ' . print_r($_POST, true));
+            // Generate PDF using DOMPDF
+            require_once GF_QUICKREPORTS_PLUGIN_DIR . 'vendor/autoload.php';
             
-            check_ajax_referer('gf_quickreports_nonce', 'nonce');
-            
-            $current_user = wp_get_current_user();
-            
-            // Check if user is an admin or has GF permissions
-            if (!current_user_can('administrator') && !current_user_can('gravityforms_view_entries')) {
-                wp_die('Unauthorized');
-            }
-            
-            // Check if DOMPDF is available
-            if (!class_exists('Dompdf\\Dompdf')) {
-                // Try to load it from vendor directory
-                $autoload_path = __DIR__ . '/vendor/autoload.php';
-                
-                if (file_exists($autoload_path)) {
-                    require_once $autoload_path;
-                } else {
-                    wp_die('PDF generation library not available - autoload.php not found');
-                }
-                
-                if (!class_exists('Dompdf\\Dompdf')) {
-                    wp_die('PDF generation library not available - DOMPDF class not found');
-                }
-            }
-            
-            $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
-            $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
-            $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
-            $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
-            $chart_data = isset($_POST['chart_data']) ? sanitize_text_field(wp_unslash($_POST['chart_data'])) : '';
-            
-            error_log('GF QuickReports: Form ID: ' . $form_id);
-            error_log('GF QuickReports: Compare Form ID: ' . $compare_form_id);
-            error_log('GF QuickReports: Start Date: ' . $start_date);
-            error_log('GF QuickReports: End Date: ' . $end_date);
+            $dompdf = new \Dompdf\Dompdf();
+            $dompdf->setPaper('A4', 'portrait');
             
             // Generate HTML content
             $html = '<html><head><style>
@@ -567,7 +539,7 @@ class GF_QuickReports {
             // Add chart image if provided
             if (!empty($chart_data)) {
                 $html .= '<div class="chart-container">';
-                $html .= '<img src="' . esc_url($chart_data) . '">';
+                $html .= '<img src="' . $chart_data . '">';
                 $html .= '</div>';
             }
             
@@ -583,19 +555,13 @@ class GF_QuickReports {
                 $total_days = 0;
                 
                 foreach ($forms as $form) {
-                    $search_criteria = array(
-                        'status' => 'active',
-                        'start_date' => $start_date . ' 00:00:00',
-                        'end_date' => $end_date . ' 23:59:59'
-                    );
-                    
                     $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
+                    $entries = GFAPI::get_entries($form['id'], $search_criteria);
                     $daily_entries = self::get_daily_entries($form['id'], $start_date, $end_date);
                     $days_count = count($daily_entries);
                     $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
                     
                     // Calculate revenue
-                    $entries = GFAPI::get_entries($form['id'], $search_criteria);
                     $form_revenue = 0;
                     $product_fields = array();
                     foreach ($form['fields'] as $field) {
@@ -604,30 +570,22 @@ class GF_QuickReports {
                         }
                     }
                     
-                    error_log('GF QuickReports: PDF - Form: ' . $form['title'] . ', Product fields: ' . print_r($product_fields, true));
-                    
                     if (!empty($product_fields) && !empty($entries)) {
                         foreach ($entries as $entry) {
                             foreach ($product_fields as $pid) {
                                 $val = rgar($entry, $pid);
-                                error_log('GF QuickReports: PDF - Entry ' . $entry['id'] . ', Field ' . $pid . ', Value: ' . print_r($val, true));
                                 if (is_numeric($val)) {
                                     $form_revenue += floatval($val);
-                                    error_log('GF QuickReports: PDF - Added numeric value: ' . $val);
                                 } elseif (is_array($val) && isset($val['price'])) {
                                     $form_revenue += floatval($val['price']);
-                                    error_log('GF QuickReports: PDF - Added array price: ' . $val['price']);
                                 } elseif (is_string($val)) {
                                     if (preg_match('/([\d\.,]+)/', $val, $matches)) {
                                         $form_revenue += floatval(str_replace(',', '', $matches[1]));
-                                        error_log('GF QuickReports: PDF - Added string value: ' . $matches[1]);
                                     }
                                 }
                             }
                         }
                     }
-                    
-                    error_log('GF QuickReports: PDF - Form ' . $form['title'] . ' revenue: ' . $form_revenue);
                     
                     $html .= sprintf(
                         '<tr><td>%s</td><td>%d</td><td>%.2f</td><td>%s</td></tr>',
@@ -641,9 +599,6 @@ class GF_QuickReports {
                     $total_revenue += $form_revenue;
                     $total_days = max($total_days, $days_count);
                 }
-                
-                error_log('GF QuickReports: PDF - Total revenue: ' . $total_revenue);
-                error_log('GF QuickReports: PDF - Total days: ' . $total_days);
                 
                 // Add totals row
                 $html .= sprintf(
@@ -703,12 +658,6 @@ class GF_QuickReports {
             } else {
                 // Single form details
                 $form = GFAPI::get_form($form_id);
-                $search_criteria = array(
-                    'status' => 'active',
-                    'start_date' => $start_date . ' 00:00:00',
-                    'end_date' => $end_date . ' 23:59:59'
-                );
-                
                 $entries = GFAPI::get_entries($form_id, $search_criteria);
                 $entry_count = count($entries);
                 $daily_entries = self::get_daily_entries($form_id, $start_date, $end_date);
@@ -798,14 +747,6 @@ class GF_QuickReports {
             
             $html .= '</body></html>';
             
-            // Initialize DOMPDF with options
-            $options = new \Dompdf\Options();
-            $options->set('isHtml5ParserEnabled', true);
-            $options->set('isPhpEnabled', true);
-            $options->set('isRemoteEnabled', true);
-            
-            $dompdf = new \Dompdf\Dompdf($options);
-            $dompdf->setPaper('A4', 'portrait');
             $dompdf->loadHtml($html);
             $dompdf->render();
             
@@ -837,110 +778,95 @@ class GF_QuickReports {
      * Get compare form options via AJAX
      */
     public function get_compare_forms() {
-        try {
-            // Debug logging
-            error_log('GF QuickReports: get_compare_forms called');
-            error_log('GF QuickReports: POST data: ' . print_r($_POST, true));
-            
-            check_ajax_referer('gf_quickreports_nonce', 'nonce');
-            
-            // Check if user is an admin or has GF permissions
-            if (!current_user_can('administrator') && !current_user_can('gravityforms_view_entries')) {
-                error_log('GF QuickReports: Unauthorized access attempt');
-                wp_die('Unauthorized');
-            }
-            
-            $selected_form = isset($_POST['selected_form']) ? sanitize_text_field(wp_unslash($_POST['selected_form'])) : '';
-            error_log('GF QuickReports: Selected form: ' . $selected_form);
-            
-            if (!$selected_form || $selected_form === 'all') {
-                error_log('GF QuickReports: No valid form selected, returning empty options');
-                wp_send_json_success(array('options' => array()));
-            }
-            
-            $forms = GFAPI::get_forms();
-            error_log('GF QuickReports: Total forms found: ' . count($forms));
-            
-            $options = array();
-            
-            foreach ($forms as $form) {
-                if ($form['id'] != $selected_form) {
-                    $options[] = array(
-                        'value' => $form['id'],
-                        'label' => $form['title']
-                    );
-                }
-            }
-            
-            error_log('GF QuickReports: Options to return: ' . print_r($options, true));
-            wp_send_json_success(array('options' => $options));
-            
-        } catch (Exception $e) {
-            error_log('GF QuickReports: Error in get_compare_forms: ' . $e->getMessage());
-            wp_send_json_error('Error getting compare forms: ' . $e->getMessage());
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+            wp_die('Security check failed');
         }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+
+        $selected_form = isset($_POST['selected_form']) ? sanitize_text_field(wp_unslash($_POST['selected_form'])) : '';
+        
+        if (empty($selected_form) || $selected_form === 'all') {
+            wp_send_json_success(array('options' => array()));
+        }
+
+        $forms = GFAPI::get_forms();
+        $options = array();
+        
+        foreach ($forms as $form) {
+            if ($form['id'] != $selected_form) {
+                $options[] = array(
+                    'value' => $form['id'],
+                    'label' => $form['title']
+                );
+            }
+        }
+        
+        wp_send_json_success(array('options' => $options));
     }
 
     /**
      * Get date preset values via AJAX
      */
     public function get_date_presets() {
-        try {
-            check_ajax_referer('gf_quickreports_nonce', 'nonce');
-            
-            // Check if user is an admin or has GF permissions
-            if (!current_user_can('administrator') && !current_user_can('gravityforms_view_entries')) {
-                wp_die('Unauthorized');
-            }
-            
-            $preset = isset($_POST['preset']) ? sanitize_text_field(wp_unslash($_POST['preset'])) : '';
-            $dates = array();
-            
-            switch($preset) {
-                case 'today':
-                    $dates['start_date'] = gmdate('Y-m-d');
-                    $dates['end_date'] = gmdate('Y-m-d');
-                    break;
-                case 'yesterday':
-                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-1 day'));
-                    $dates['end_date'] = gmdate('Y-m-d', strtotime('-1 day'));
-                    break;
-                case '7days':
-                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-7 days'));
-                    $dates['end_date'] = gmdate('Y-m-d');
-                    break;
-                case '30days':
-                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-30 days'));
-                    $dates['end_date'] = gmdate('Y-m-d');
-                    break;
-                case '60days':
-                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-60 days'));
-                    $dates['end_date'] = gmdate('Y-m-d');
-                    break;
-                case '90days':
-                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-90 days'));
-                    $dates['end_date'] = gmdate('Y-m-d');
-                    break;
-                case 'year_to_date':
-                    $dates['start_date'] = gmdate('Y-01-01');
-                    $dates['end_date'] = gmdate('Y-m-d');
-                    break;
-                case 'last_year':
-                    $dates['start_date'] = gmdate('Y-01-01', strtotime('-1 year'));
-                    $dates['end_date'] = gmdate('Y-12-31', strtotime('-1 year'));
-                    break;
-                case 'custom':
-                default:
-                    $dates['start_date'] = '';
-                    $dates['end_date'] = '';
-                    break;
-            }
-            
-            wp_send_json_success($dates);
-            
-        } catch (Exception $e) {
-            wp_send_json_error('Error getting date presets: ' . $e->getMessage());
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+            wp_die('Security check failed');
         }
+
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_die('Insufficient permissions');
+        }
+
+        $preset = isset($_POST['preset']) ? sanitize_text_field(wp_unslash($_POST['preset'])) : '';
+        $dates = array();
+        
+        switch($preset) {
+            case 'today':
+                $dates['start_date'] = gmdate('Y-m-d');
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case 'yesterday':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-1 day'));
+                $dates['end_date'] = gmdate('Y-m-d', strtotime('-1 day'));
+                break;
+            case '7days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-7 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case '30days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-30 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case '60days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-60 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case '90days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-90 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case 'year_to_date':
+                $dates['start_date'] = gmdate('Y-01-01');
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case 'last_year':
+                $dates['start_date'] = gmdate('Y-01-01', strtotime('-1 year'));
+                $dates['end_date'] = gmdate('Y-12-31', strtotime('-1 year'));
+                break;
+            case 'custom':
+            default:
+                $dates['start_date'] = '';
+                $dates['end_date'] = '';
+                break;
+        }
+        
+        wp_send_json_success($dates);
     }
 }
 
