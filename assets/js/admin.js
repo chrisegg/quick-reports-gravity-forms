@@ -300,6 +300,8 @@ jQuery(document).ready(function($) {
             return;
         }
         
+        console.log('Initializing revenue chart with data:', window.revenueChartData);
+        
         try {
             var ctx = canvas.getContext('2d');
             var datasets = [];
@@ -308,8 +310,11 @@ jQuery(document).ready(function($) {
             var chartData = window.revenueChartData;
             var compareChartData = window.compareRevenueChartData;
 
+            console.log('Revenue chart data values:', chartData ? chartData.data : 'no data');
+            console.log('Revenue chart data type check:', chartData ? chartData.data.some(function(v){return parseFloat(v) > 0;}) : 'no data');
+
             // Main form dataset
-            if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
+            if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return parseFloat(v) > 0;})) {
                 hasData = true;
                 var formLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                     formatFormLabel(window.selectedFormLabel) : 
@@ -348,7 +353,7 @@ jQuery(document).ready(function($) {
             }
             
             // Compare form dataset
-            if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
+            if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return parseFloat(v) > 0;})) {
                 hasData = true;
                 var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Form 2');
                 
