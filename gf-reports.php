@@ -291,6 +291,10 @@ class GF_QuickReports {
      */
     public function handle_csv_export() {
         try {
+            // Debug logging
+            error_log('GF QuickReports: CSV export called');
+            error_log('GF QuickReports: POST data: ' . print_r($_POST, true));
+            
             check_ajax_referer('gf_quickreports_nonce', 'nonce');
             
             $current_user = wp_get_current_user();
@@ -304,6 +308,11 @@ class GF_QuickReports {
             $start_date = sanitize_text_field($_POST['start_date']);
             $end_date = sanitize_text_field($_POST['end_date']);
             $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field($_POST['compare_form_id']) : '';
+            
+            error_log('GF QuickReports: Form ID: ' . $form_id);
+            error_log('GF QuickReports: Compare Form ID: ' . $compare_form_id);
+            error_log('GF QuickReports: Start Date: ' . $start_date);
+            error_log('GF QuickReports: End Date: ' . $end_date);
             
             $search_criteria = array('status' => 'active');
             if ($start_date) {
@@ -435,12 +444,16 @@ class GF_QuickReports {
                 
                 // Add comparison form data if selected
                 if ($compare_form_id) {
+                    error_log('GF QuickReports: Processing comparison form data for form ID: ' . $compare_form_id);
                     $compare_form = GFAPI::get_form($compare_form_id);
                     $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria);
                     $compare_entry_count = count($compare_entries);
                     $compare_daily_entries = self::get_daily_entries($compare_form_id, $start_date, $end_date);
                     $compare_days_count = count($compare_daily_entries);
                     $compare_avg_per_day = $compare_days_count > 0 ? $compare_entry_count / $compare_days_count : 0;
+                    
+                    error_log('GF QuickReports: Comparison form: ' . $compare_form['title']);
+                    error_log('GF QuickReports: Comparison entries: ' . $compare_entry_count);
                     
                     // Calculate comparison form revenue
                     $compare_total_revenue = 0;
@@ -468,6 +481,8 @@ class GF_QuickReports {
                         }
                     }
                     
+                    error_log('GF QuickReports: Comparison revenue: ' . $compare_total_revenue);
+                    
                     // Write comparison form data (always write, regardless of product fields)
                     fputcsv($output, array(
                         $compare_form['title'],
@@ -475,6 +490,8 @@ class GF_QuickReports {
                         number_format($compare_avg_per_day, 2),
                         !empty($compare_product_fields) ? '$' . number_format($compare_total_revenue, 2) : 'N/A'
                     ));
+                } else {
+                    error_log('GF QuickReports: No comparison form ID provided');
                 }
             }
             
@@ -491,6 +508,10 @@ class GF_QuickReports {
      */
     public function handle_pdf_export() {
         try {
+            // Debug logging
+            error_log('GF QuickReports: PDF export called');
+            error_log('GF QuickReports: POST data: ' . print_r($_POST, true));
+            
             check_ajax_referer('gf_quickreports_nonce', 'nonce');
             
             $current_user = wp_get_current_user();
@@ -521,6 +542,11 @@ class GF_QuickReports {
             $end_date = sanitize_text_field($_POST['end_date']);
             $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field($_POST['compare_form_id']) : '';
             $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
+            
+            error_log('GF QuickReports: Form ID: ' . $form_id);
+            error_log('GF QuickReports: Compare Form ID: ' . $compare_form_id);
+            error_log('GF QuickReports: Start Date: ' . $start_date);
+            error_log('GF QuickReports: End Date: ' . $end_date);
             
             // Generate HTML content
             $html = '<html><head><style>
