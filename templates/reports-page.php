@@ -414,6 +414,23 @@ if ($date_preset && $date_preset !== 'custom') {
             $revenue_chart_labels = isset($revenue_chart_data['labels']) ? $revenue_chart_data['labels'] : array();
             $revenue_chart_data_values = isset($revenue_chart_data['data']) ? $revenue_chart_data['data'] : array();
             
+            // Debug: Check if revenue data is available
+            error_log('GF QuickReports Template Debug - Revenue Chart Data: ' . print_r($revenue_chart_data, true));
+            error_log('GF QuickReports Template Debug - Revenue Labels: ' . print_r($revenue_chart_labels, true));
+            error_log('GF QuickReports Template Debug - Revenue Values: ' . print_r($revenue_chart_data_values, true));
+            
+            if (empty($revenue_chart_labels) && empty($revenue_chart_data_values)) {
+                // Try to get revenue data from the PHP backend variables
+                if (isset($revenue_chart_data) && is_array($revenue_chart_data)) {
+                    $revenue_chart_labels = isset($revenue_chart_data['labels']) ? $revenue_chart_data['labels'] : array();
+                    $revenue_chart_data_values = isset($revenue_chart_data['data']) ? $revenue_chart_data['data'] : array();
+                } else {
+                    // Create empty arrays if no revenue data available
+                    $revenue_chart_labels = array();
+                    $revenue_chart_data_values = array();
+                }
+            }
+            
             $chart_script = "
             window.chartMode = " . json_encode($show_by) . ";
             window.chartData = {

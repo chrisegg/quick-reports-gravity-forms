@@ -193,6 +193,10 @@ class GF_QuickReports {
         // Get recent entries
         $recent_entries = $this->get_recent_entries($form_id, 10);
 
+        // Debug: Check if revenue data is being generated
+        error_log('GF QuickReports Debug - Revenue Chart Data: ' . print_r($revenue_chart_data, true));
+        error_log('GF QuickReports Debug - Individual Revenue Data: ' . print_r($individual_revenue_data, true));
+
         // Include template
         include GF_QUICKREPORTS_PLUGIN_DIR . 'templates/reports-page.php';
     }

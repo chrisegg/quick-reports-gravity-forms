@@ -297,8 +297,11 @@ jQuery(document).ready(function($) {
     function initializeRevenueChart() {
         var canvas = document.getElementById('revenueChart');
         if (!canvas) {
+            console.log('Revenue chart canvas not found');
             return;
         }
+        
+        console.log('Initializing revenue chart with data:', window.revenueChartData);
         
         try {
             var ctx = canvas.getContext('2d');
@@ -330,6 +333,9 @@ jQuery(document).ready(function($) {
                     pointHoverRadius: 6
                 });
             }
+            
+            console.log('Revenue chart has data:', hasData);
+            console.log('Revenue chart datasets:', datasets);
             
             // Individual forms datasets (for "All Forms" view)
             if (typeof window.individualRevenueData !== 'undefined' && window.individualRevenueData.length > 0 && 
@@ -370,6 +376,7 @@ jQuery(document).ready(function($) {
             
             // No data
             if (!hasData) {
+                console.log('No revenue data available, hiding chart');
                 $('#revenueChart').hide();
                 $('#revenue-chartjs-no-data').show();
                 return;
