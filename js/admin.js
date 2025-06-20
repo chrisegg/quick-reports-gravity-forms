@@ -4,6 +4,9 @@
 
 jQuery(document).ready(function($) {
     
+    // Flag to track if comparison dropdown is being populated
+    var isPopulatingCompareDropdown = false;
+    
     // Initialize chart if data is available
     if (typeof window.chartData !== 'undefined') {
         initializeChart();
@@ -23,7 +26,9 @@ jQuery(document).ready(function($) {
         var compareFormId = $('#compare_form_id').val();
         
         console.log('Form submission - Form ID:', formId);
-        console.log('Form submission - Compare Form ID:', compareFormId);
+        console.log('Form submission - Compare Form ID from dropdown:', compareFormId);
+        console.log('Form submission - Compare Form ID from URL:', new URLSearchParams(window.location.search).get('compare_form_id'));
+        console.log('Form submission - Is populating compare dropdown:', isPopulatingCompareDropdown);
         
         // Check form selection
         if (!formId) {
@@ -32,10 +37,27 @@ jQuery(document).ready(function($) {
             return false;
         }
         
+        // If the comparison dropdown is still being populated, wait a moment
+        if (isPopulatingCompareDropdown) {
+            console.log('Waiting for comparison dropdown to finish populating...');
+            setTimeout(function() {
+                $('form').submit();
+            }, 100);
+            e.preventDefault();
+            return false;
+        }
+        
         // Preserve comparison form selection by updating hidden input
         if (compareFormId) {
             $('#current_compare_form_id').val(compareFormId);
             console.log('Preserving comparison form ID:', compareFormId);
+        } else {
+            // If no value in dropdown, try to get from URL
+            var urlCompareFormId = new URLSearchParams(window.location.search).get('compare_form_id');
+            if (urlCompareFormId) {
+                $('#current_compare_form_id').val(urlCompareFormId);
+                console.log('Preserving comparison form ID from URL:', urlCompareFormId);
+            }
         }
         
         // Handle date preset validation
@@ -534,6 +556,7 @@ jQuery(document).ready(function($) {
             return;
         }
         
+        isPopulatingCompareDropdown = true;
         console.log('Making AJAX call to get compare forms');
         console.log('AJAX URL:', gf_quickreports_ajax.ajax_url);
         console.log('Nonce:', gf_quickreports_ajax.nonce);
@@ -559,7 +582,8 @@ jQuery(document).ready(function($) {
                         });
                         
                         // Preserve the selected value if provided
-                        if (preserveValue && option.value === preserveValue) {
+                        if (preserveValue && option.value == preserveValue) {
+                            console.log('Setting option as selected:', option.value, option.label);
                             $option.prop('selected', true);
                         }
                         
@@ -568,14 +592,17 @@ jQuery(document).ready(function($) {
                     
                     $select.prop('disabled', false);
                     console.log('Compare dropdown updated successfully');
+                    console.log('Final selected value:', $select.val());
                 } else {
                     console.error('AJAX response indicates failure:', response);
                 }
+                isPopulatingCompareDropdown = false;
             },
             error: function(xhr, status, error) {
                 console.error('AJAX error:', status, error);
                 console.error('Response:', xhr.responseText);
                 showNotice('Error loading compare form options.', 'error');
+                isPopulatingCompareDropdown = false;
             }
         });
     }
