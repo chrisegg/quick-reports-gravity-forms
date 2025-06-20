@@ -324,41 +324,18 @@ jQuery(document).ready(function($) {
         }
 
         // For PDF export, include the chart as an image
-        if (type === 'pdf') {
+        if (type === 'pdf' && window.currentChart) {
             try {
                 var chartCanvas = document.getElementById('entriesChart');
-                if (chartCanvas && window.currentChart) {
-                    // Ensure chart is fully rendered
-                    window.currentChart.update('none');
-                    
-                    // Wait a moment for the chart to render, then capture
-                    setTimeout(function() {
-                        try {
-                            var chartImage = chartCanvas.toDataURL('image/png', 1.0);
-                            formData.append('chart_data', chartImage);
-                            
-                            // Continue with the export
-                            performExport(formData, type, $button, originalText);
-                        } catch (e) {
-                            // Continue without chart image
-                            performExport(formData, type, $button, originalText);
-                        }
-                    }, 100);
-                    return; // Exit early, will continue in setTimeout
-                }
+                var chartImage = chartCanvas.toDataURL('image/png');
+                formData.append('chart_data', chartImage);
             } catch (e) {
-                // Continue without chart image
+                showNotice('Error capturing chart for PDF. Please try again.', 'error');
+                $button.text(originalText).prop('disabled', false);
+                return;
             }
         }
         
-        // For CSV or if chart capture failed, proceed immediately
-        performExport(formData, type, $button, originalText);
-    }
-    
-    /**
-     * Perform the actual export AJAX request
-     */
-    function performExport(formData, type, $button, originalText) {
         // Make AJAX request
         $.ajax({
             url: gf_quickreports_ajax.ajax_url,
@@ -385,7 +362,7 @@ jQuery(document).ready(function($) {
                     var url = window.URL.createObjectURL(blob);
                     var a = document.createElement('a');
                     a.href = url;
-                    a.download = 'gf-quickreports-' + formData.get('form_id') + '-' + new Date().toISOString().split('T')[0] + '.' + type;
+                    a.download = 'gf-quickreports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.' + type;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
