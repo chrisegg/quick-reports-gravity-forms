@@ -774,20 +774,29 @@ class GF_QuickReports {
      */
     public function get_compare_forms() {
         try {
+            // Debug logging
+            error_log('GF QuickReports: get_compare_forms called');
+            error_log('GF QuickReports: POST data: ' . print_r($_POST, true));
+            
             check_ajax_referer('gf_quickreports_nonce', 'nonce');
             
             // Check if user is an admin or has GF permissions
             if (!current_user_can('administrator') && !current_user_can('gravityforms_view_entries')) {
+                error_log('GF QuickReports: Unauthorized access attempt');
                 wp_die('Unauthorized');
             }
             
             $selected_form = isset($_POST['selected_form']) ? sanitize_text_field($_POST['selected_form']) : '';
+            error_log('GF QuickReports: Selected form: ' . $selected_form);
             
             if (!$selected_form || $selected_form === 'all') {
+                error_log('GF QuickReports: No valid form selected, returning empty options');
                 wp_send_json_success(array('options' => array()));
             }
             
             $forms = GFAPI::get_forms();
+            error_log('GF QuickReports: Total forms found: ' . count($forms));
+            
             $options = array();
             
             foreach ($forms as $form) {
@@ -799,9 +808,11 @@ class GF_QuickReports {
                 }
             }
             
+            error_log('GF QuickReports: Options to return: ' . print_r($options, true));
             wp_send_json_success(array('options' => $options));
             
         } catch (Exception $e) {
+            error_log('GF QuickReports: Error in get_compare_forms: ' . $e->getMessage());
             wp_send_json_error('Error getting compare forms: ' . $e->getMessage());
         }
     }

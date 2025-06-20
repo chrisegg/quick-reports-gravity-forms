@@ -55,12 +55,15 @@ jQuery(document).ready(function($) {
     // Form selection change - update compare form options
     $('#form_id').on('change', function() {
         var selectedForm = $(this).val();
+        console.log('Form selection changed to:', selectedForm);
         
         // Immediately update compare form options
         if (selectedForm && selectedForm !== 'all') {
+            console.log('Selected form is valid, updating compare options');
             // Enable and populate compare form dropdown immediately
             updateCompareFormOptions(selectedForm);
         } else {
+            console.log('Selected form is invalid or "all", disabling compare dropdown');
             // Disable compare form dropdown for "All Forms" or no selection
             $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
         }
@@ -490,11 +493,17 @@ jQuery(document).ready(function($) {
      * Update compare form options via AJAX
      */
     function updateCompareFormOptions(selectedForm, preserveValue) {
+        console.log('updateCompareFormOptions called with:', selectedForm, preserveValue);
+        
         if (!selectedForm || selectedForm === 'all') {
+            console.log('No valid form selected, disabling compare dropdown');
             $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
             return;
         }
         
+        console.log('Making AJAX call to get compare forms');
+        console.log('AJAX URL:', gf_quickreports_ajax.ajax_url);
+        console.log('Nonce:', gf_quickreports_ajax.nonce);
         $.ajax({
             url: gf_quickreports_ajax.ajax_url,
             type: 'POST',
@@ -504,10 +513,12 @@ jQuery(document).ready(function($) {
                 selected_form: selectedForm
             },
             success: function(response) {
+                console.log('AJAX response received:', response);
                 if (response.success) {
                     var $select = $('#compare_form_id');
                     $select.html('<option value="">Compare With...</option>');
                     
+                    console.log('Adding options:', response.data.options);
                     response.data.options.forEach(function(option) {
                         var $option = $('<option>', {
                             value: option.value,
@@ -523,9 +534,14 @@ jQuery(document).ready(function($) {
                     });
                     
                     $select.prop('disabled', false);
+                    console.log('Compare dropdown updated successfully');
+                } else {
+                    console.error('AJAX response indicates failure:', response);
                 }
             },
-            error: function() {
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', status, error);
+                console.error('Response:', xhr.responseText);
                 showNotice('Error loading compare form options.', 'error');
             }
         });
