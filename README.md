@@ -2,6 +2,9 @@
 
 A powerful WordPress plugin that provides advanced reporting and visualization capabilities for Gravity Forms entries.
 
+![quickreports-img1](https://github.com/user-attachments/assets/04db21b5-0986-494c-85e7-ce23d4262744)
+
+
 ## Features
 
 - **Interactive Charts**: Visualize form submission data with Chart.js-powered graphs
@@ -68,11 +71,15 @@ Quick access to common date ranges:
 - Includes summary data with form statistics
 - Compatible with Excel, Google Sheets, and other spreadsheet applications
 
+![quickreports-csv](https://github.com/user-attachments/assets/f997f5e4-feab-47a1-929c-7310c81eb941)
+
 ### PDF Export
 - Professional report layout with proper formatting
 - Includes summary statistics and comparison data
 - Clean, print-ready design
 - Generated using DOMPDF library
+
+![quickreports-pdf](https://github.com/user-attachments/assets/ba5de4c7-557e-420e-ab18-dc4c516efae6)
 
 ## Customization
 
