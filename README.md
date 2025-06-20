@@ -66,14 +66,11 @@ Quick access to common date ranges:
 
 ### CSV Export
 - Includes summary data with form statistics
-- Contains detailed entry data with all form fields (excluding admin-only fields)
-- Includes entry ID, date, IP address, and comparison data if selected
 - Compatible with Excel, Google Sheets, and other spreadsheet applications
 
 ### PDF Export
 - Professional report layout with proper formatting
 - Includes summary statistics and comparison data
-- Recent entries table (last 10 entries)
 - Clean, print-ready design
 - Generated using DOMPDF library
 
