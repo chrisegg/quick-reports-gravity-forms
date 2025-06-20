@@ -579,6 +579,7 @@ class GF_QuickReports {
                 $forms = GFAPI::get_forms();
                 $total_entries = 0;
                 $total_revenue = 0;
+                $total_days = 0;
                 
                 foreach ($forms as $form) {
                     $search_criteria = array(
@@ -602,16 +603,30 @@ class GF_QuickReports {
                         }
                     }
                     
+                    error_log('GF QuickReports: PDF - Form: ' . $form['title'] . ', Product fields: ' . print_r($product_fields, true));
+                    
                     if (!empty($product_fields) && !empty($entries)) {
                         foreach ($entries as $entry) {
                             foreach ($product_fields as $pid) {
                                 $val = rgar($entry, $pid);
+                                error_log('GF QuickReports: PDF - Entry ' . $entry['id'] . ', Field ' . $pid . ', Value: ' . print_r($val, true));
                                 if (is_numeric($val)) {
                                     $form_revenue += floatval($val);
+                                    error_log('GF QuickReports: PDF - Added numeric value: ' . $val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $form_revenue += floatval($val['price']);
+                                    error_log('GF QuickReports: PDF - Added array price: ' . $val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $form_revenue += floatval(str_replace(',', '', $matches[1]));
+                                        error_log('GF QuickReports: PDF - Added string value: ' . $matches[1]);
+                                    }
                                 }
                             }
                         }
                     }
+                    
+                    error_log('GF QuickReports: PDF - Form ' . $form['title'] . ' revenue: ' . $form_revenue);
                     
                     $html .= sprintf(
                         '<tr><td>%s</td><td>%d</td><td>%.2f</td><td>%s</td></tr>',
@@ -623,13 +638,17 @@ class GF_QuickReports {
                     
                     $total_entries += $entry_count;
                     $total_revenue += $form_revenue;
+                    $total_days = max($total_days, $days_count);
                 }
+                
+                error_log('GF QuickReports: PDF - Total revenue: ' . $total_revenue);
+                error_log('GF QuickReports: PDF - Total days: ' . $total_days);
                 
                 // Add totals row
                 $html .= sprintf(
                     '<tr style="font-weight: bold;"><td>TOTAL</td><td>%d</td><td>%.2f</td><td>$%s</td></tr>',
                     $total_entries,
-                    $total_entries / $days_count,
+                    $total_days > 0 ? $total_entries / $total_days : 0,
                     number_format($total_revenue, 2)
                 );
                 
@@ -666,6 +685,12 @@ class GF_QuickReports {
                                 $val = rgar($entry, $pid);
                                 if (is_numeric($val)) {
                                     $compare_total_revenue += floatval($val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $compare_total_revenue += floatval($val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    }
                                 }
                             }
                         }
@@ -709,6 +734,12 @@ class GF_QuickReports {
                             $val = rgar($entry, $pid);
                             if (is_numeric($val)) {
                                 $total_revenue += floatval($val);
+                            } elseif (is_array($val) && isset($val['price'])) {
+                                $total_revenue += floatval($val['price']);
+                            } elseif (is_string($val)) {
+                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                    $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                }
                             }
                         }
                     }
@@ -748,6 +779,12 @@ class GF_QuickReports {
                                 $val = rgar($entry, $pid);
                                 if (is_numeric($val)) {
                                     $compare_total_revenue += floatval($val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $compare_total_revenue += floatval($val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    }
                                 }
                             }
                         }
