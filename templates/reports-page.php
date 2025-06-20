@@ -414,6 +414,13 @@ if ($date_preset && $date_preset !== 'custom') {
             $revenue_chart_labels = isset($revenue_chart_data['labels']) ? $revenue_chart_data['labels'] : array();
             $revenue_chart_data_values = isset($revenue_chart_data['data']) ? $revenue_chart_data['data'] : array();
             
+            // Debug: Check what variables are available
+            error_log('GF QuickReports Template Debug - Available variables:');
+            error_log('- $revenue_chart_data exists: ' . (isset($revenue_chart_data) ? 'yes' : 'no'));
+            error_log('- $revenue_chart_data type: ' . (isset($revenue_chart_data) ? gettype($revenue_chart_data) : 'not set'));
+            error_log('- $revenue_chart_labels: ' . print_r($revenue_chart_labels, true));
+            error_log('- $revenue_chart_data_values: ' . print_r($revenue_chart_data_values, true));
+            
             if (empty($revenue_chart_labels) && empty($revenue_chart_data_values)) {
                 // Try to get revenue data from the PHP backend variables
                 if (isset($revenue_chart_data) && is_array($revenue_chart_data)) {
