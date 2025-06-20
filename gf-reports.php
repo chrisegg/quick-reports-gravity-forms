@@ -58,7 +58,7 @@ class GF_QuickReports {
      */
     private function __construct() {
         add_action('init', array($this, 'init'));
-        add_action('admin_menu', array($this, 'add_menu_page'), 999);
+        add_action('admin_menu', array($this, 'add_menu_page'), 20);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_ajax_gf_quickreports_export_csv', array($this, 'handle_csv_export'));
         add_action('wp_ajax_gf_quickreports_export_pdf', array($this, 'handle_pdf_export'));
@@ -78,7 +78,7 @@ class GF_QuickReports {
      */
     public function add_menu_page() {
         add_submenu_page(
-            'gf_edit_forms',
+            'gform_forms',
             __('Quick Reports', 'gf-quickreports'),
             __('Quick Reports', 'gf-quickreports'),
             'manage_options',
@@ -107,7 +107,7 @@ class GF_QuickReports {
         // Enqueue plugin scripts
         wp_enqueue_script(
             'gf-quickreports-admin',
-            GF_QUICKREPORTS_PLUGIN_URL . 'js/admin.js',
+            GF_QUICKREPORTS_PLUGIN_URL . 'assets/js/admin.js',
             array('jquery', 'chartjs'),
             GF_QUICKREPORTS_VERSION,
             true
@@ -116,7 +116,7 @@ class GF_QuickReports {
         // Enqueue plugin styles
         wp_enqueue_style(
             'gf-quickreports-admin',
-            GF_QUICKREPORTS_PLUGIN_URL . 'css/admin.css',
+            GF_QUICKREPORTS_PLUGIN_URL . 'assets/css/admin.css',
             array(),
             GF_QUICKREPORTS_VERSION
         );
