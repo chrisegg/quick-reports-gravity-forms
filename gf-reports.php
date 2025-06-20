@@ -58,7 +58,7 @@ class GF_QuickReports {
      */
     private function __construct() {
         add_action('init', array($this, 'init'));
-        add_action('admin_menu', array($this, 'add_menu_page'), 20);
+        add_action('admin_menu', array($this, 'add_menu_page'), 30);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_ajax_gf_quickreports_export_csv', array($this, 'handle_csv_export'));
         add_action('wp_ajax_gf_quickreports_export_pdf', array($this, 'handle_pdf_export'));
@@ -77,11 +77,16 @@ class GF_QuickReports {
      * Add menu page
      */
     public function add_menu_page() {
+        // Check if Gravity Forms is active
+        if (!class_exists('GFForms')) {
+            return;
+        }
+        
         add_submenu_page(
-            'gform_forms',
-            __('Quick Reports', 'gf-quickreports'),
-            __('Quick Reports', 'gf-quickreports'),
-            'manage_options',
+            'gf_edit_forms',
+            esc_html__('Quick Reports', 'gf-quickreports'),
+            esc_html__('Quick Reports', 'gf-quickreports'),
+            'gravityforms_view_entries',
             'gf_quickreports',
             array($this, 'render_reports_page')
         );
@@ -133,7 +138,7 @@ class GF_QuickReports {
      */
     public function render_reports_page() {
         // Check user capabilities
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('gravityforms_view_entries')) {
             wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'gf-quickreports'));
         }
 
