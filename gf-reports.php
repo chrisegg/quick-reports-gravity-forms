@@ -539,7 +539,7 @@ class GF_QuickReports {
             // Add chart image if provided
             if (!empty($chart_data)) {
                 $html .= '<div class="chart-container">';
-                $html .= '<img src="' . esc_url($chart_data) . '">';
+                $html .= '<img src="' . $chart_data . '">';
                 $html .= '</div>';
             }
             
