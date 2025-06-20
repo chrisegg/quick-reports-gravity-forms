@@ -404,9 +404,6 @@ if ($date_preset && $date_preset !== 'custom') {
             $chart_data_values = array_values($show_by === 'per_day' ? $daily_entries : [array_sum($daily_entries)]);
             
             $chart_script = "
-            console.log('GF Quick Reports Debug - Inline script loaded');
-            console.log('GF Quick Reports Debug - PHP Chart labels:', " . json_encode($chart_labels) . ");
-            console.log('GF Quick Reports Debug - PHP Chart data:', " . json_encode($chart_data_values) . ");
             window.chartMode = " . json_encode($show_by) . ";
             window.chartData = {
                 labels: " . json_encode($chart_labels) . ",
@@ -456,7 +453,6 @@ if ($date_preset && $date_preset !== 'custom') {
             if ($compare_form) {
                 $compare_data_values = array_values($show_by === 'per_day' ? $compare_daily_entries : [array_sum($compare_daily_entries)]);
                 $chart_script .= "
-            console.log('GF Quick Reports Debug - PHP Compare data:', " . json_encode($compare_data_values) . ");
             window.compareChartData = {
                 labels: window.chartData.labels,
                 data: " . json_encode($compare_data_values) . "
