@@ -107,7 +107,7 @@ class GF_QuickReports {
         // Enqueue plugin scripts
         wp_enqueue_script(
             'gf-quickreports-admin',
-            GF_QUICKREPORTS_PLUGIN_URL . 'js/admin.js',
+            GF_QUICKREPORTS_PLUGIN_URL . 'assets/js/admin.js',
             array('jquery', 'chartjs'),
             GF_QUICKREPORTS_VERSION,
             true
@@ -116,7 +116,7 @@ class GF_QuickReports {
         // Enqueue plugin styles
         wp_enqueue_style(
             'gf-quickreports-admin',
-            GF_QUICKREPORTS_PLUGIN_URL . 'css/admin.css',
+            GF_QUICKREPORTS_PLUGIN_URL . 'assets/css/admin.css',
             array(),
             GF_QUICKREPORTS_VERSION
         );
