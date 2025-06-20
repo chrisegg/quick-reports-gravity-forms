@@ -706,10 +706,10 @@ class GF_QuickReports {
             wp_die('Insufficient permissions');
         }
 
-        $selected_form = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
+        $selected_form = isset($_POST['selected_form']) ? sanitize_text_field(wp_unslash($_POST['selected_form'])) : '';
         
         if (empty($selected_form) || $selected_form === 'all') {
-            wp_send_json(array());
+            wp_send_json_success(array('options' => array()));
         }
 
         $forms = GFAPI::get_forms();
@@ -724,7 +724,7 @@ class GF_QuickReports {
             }
         }
         
-        wp_send_json($options);
+        wp_send_json_success(array('options' => $options));
     }
 
     /**
@@ -741,18 +741,50 @@ class GF_QuickReports {
             wp_die('Insufficient permissions');
         }
 
-        $presets = array(
-            array('value' => 'today', 'label' => __('Today', 'gf-quickreports')),
-            array('value' => 'yesterday', 'label' => __('Yesterday', 'gf-quickreports')),
-            array('value' => '7days', 'label' => __('Last 7 Days', 'gf-quickreports')),
-            array('value' => '30days', 'label' => __('Last 30 Days', 'gf-quickreports')),
-            array('value' => '60days', 'label' => __('Last 60 Days', 'gf-quickreports')),
-            array('value' => '90days', 'label' => __('Last 90 Days', 'gf-quickreports')),
-            array('value' => 'year_to_date', 'label' => __('Year to Date', 'gf-quickreports')),
-            array('value' => 'last_year', 'label' => __('Last Year', 'gf-quickreports'))
-        );
+        $preset = isset($_POST['preset']) ? sanitize_text_field(wp_unslash($_POST['preset'])) : '';
+        $dates = array();
         
-        wp_send_json($presets);
+        switch($preset) {
+            case 'today':
+                $dates['start_date'] = gmdate('Y-m-d');
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case 'yesterday':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-1 day'));
+                $dates['end_date'] = gmdate('Y-m-d', strtotime('-1 day'));
+                break;
+            case '7days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-7 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case '30days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-30 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case '60days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-60 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case '90days':
+                $dates['start_date'] = gmdate('Y-m-d', strtotime('-90 days'));
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case 'year_to_date':
+                $dates['start_date'] = gmdate('Y-01-01');
+                $dates['end_date'] = gmdate('Y-m-d');
+                break;
+            case 'last_year':
+                $dates['start_date'] = gmdate('Y-01-01', strtotime('-1 year'));
+                $dates['end_date'] = gmdate('Y-12-31', strtotime('-1 year'));
+                break;
+            case 'custom':
+            default:
+                $dates['start_date'] = '';
+                $dates['end_date'] = '';
+                break;
+        }
+        
+        wp_send_json_success($dates);
     }
 }
 
