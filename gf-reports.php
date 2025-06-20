@@ -58,7 +58,7 @@ class GF_QuickReports {
      */
     private function __construct() {
         add_action('init', array($this, 'init'));
-        add_action('admin_menu', array($this, 'add_menu_page'), 999);
+        add_action('admin_menu', array($this, 'add_menu_page'), 20);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
         add_action('wp_ajax_gf_quickreports_export_csv', array($this, 'handle_csv_export'));
         add_action('wp_ajax_gf_quickreports_export_pdf', array($this, 'handle_pdf_export'));
@@ -91,7 +91,7 @@ class GF_QuickReports {
      * Enqueue assets
      */
     public function enqueue_assets($hook) {
-        if ($hook !== 'gravity-forms_page_gf_quickreports') {
+        if ($hook !== 'forms_page_gf_quickreports') {
             return;
         }
 
