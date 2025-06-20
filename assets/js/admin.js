@@ -327,26 +327,13 @@ jQuery(document).ready(function($) {
         if (type === 'pdf' && window.currentChart) {
             try {
                 var chartCanvas = document.getElementById('entriesChart');
-                console.log('PDF Export Debug:');
-                console.log('- window.currentChart exists:', !!window.currentChart);
-                console.log('- chartCanvas exists:', !!chartCanvas);
-                console.log('- chartCanvas visible:', chartCanvas ? chartCanvas.offsetParent !== null : false);
-                console.log('- chartData exists:', !!window.chartData);
-                console.log('- individualFormsData exists:', !!window.individualFormsData);
-                
                 var chartImage = chartCanvas.toDataURL('image/png');
-                console.log('- chartImage captured:', !!chartImage);
                 formData.append('chart_data', chartImage);
             } catch (e) {
-                console.error('Chart capture error:', e);
                 showNotice('Error capturing chart for PDF. Please try again.', 'error');
                 $button.text(originalText).prop('disabled', false);
                 return;
             }
-        } else {
-            console.log('PDF Export Debug - Chart not available:');
-            console.log('- type is pdf:', type === 'pdf');
-            console.log('- window.currentChart exists:', !!window.currentChart);
         }
         
         // Make AJAX request
