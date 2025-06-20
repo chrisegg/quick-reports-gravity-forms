@@ -19,7 +19,7 @@ if (!class_exists('GFFormsModel')) {
 }
 
 $forms = GFAPI::get_forms();
-$selected_form = isset($_GET['form_id']) ? absint(wp_unslash($_GET['form_id'])) : 0;
+$selected_form = isset($_GET['form_id']) ? $_GET['form_id'] : 0;
 $date_preset = isset($_GET['date_preset']) ? sanitize_text_field(wp_unslash($_GET['date_preset'])) : 'custom';
 
 // Handle date preset logic
@@ -249,9 +249,10 @@ if ($date_preset && $date_preset !== 'custom') {
                 
             } else {
                 // Single form processing
-                $entry_count = GFAPI::count_entries($selected_form, $search_criteria);
-                $entries = GFAPI::get_entries($selected_form, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
-                $form = GFAPI::get_form($selected_form);
+                $form_id = is_numeric($selected_form) ? absint($selected_form) : 0;
+                $entry_count = GFAPI::count_entries($form_id, $search_criteria);
+                $entries = GFAPI::get_entries($form_id, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
+                $form = GFAPI::get_form($form_id);
                 $product_fields = array();
                 foreach ($form['fields'] as $field) {
                     if (isset($field['type']) && $field['type'] === 'product') {
@@ -276,7 +277,7 @@ if ($date_preset && $date_preset !== 'custom') {
                     }
                 }
                 // Calculate daily entries for chart and per-day summary
-                $daily_entries = gf_quickreports_get_daily_entries($selected_form, $start_date, $end_date);
+                $daily_entries = gf_quickreports_get_daily_entries($form_id, $start_date, $end_date);
                 $days_count = count($daily_entries);
                 $avg_per_day = $days_count > 0 ? array_sum($daily_entries) / $days_count : 0;
             }
