@@ -148,19 +148,38 @@ class GF_QuickReports {
         $chart_mode = isset($_GET['chart_mode']) ? sanitize_text_field(wp_unslash($_GET['chart_mode'])) : 'per_day';
         $chart_view = isset($_GET['chart_view']) ? sanitize_text_field(wp_unslash($_GET['chart_view'])) : 'combined';
 
-        // Get chart data
-        $chart_data = $this->get_chart_data($form_id, $start_date, $end_date, $chart_mode);
-        $compare_chart_data = $compare_form_id ? $this->get_chart_data($compare_form_id, $start_date, $end_date, $chart_mode) : null;
+        // Get chart data for entries
+        $chart_data = $this->get_chart_data($form_id, $start_date, $end_date, $chart_mode, 'entries');
+        $compare_chart_data = $compare_form_id ? $this->get_chart_data($compare_form_id, $start_date, $end_date, $chart_mode, 'entries') : null;
 
-        // Get individual forms data for "All Forms" view
+        // Get chart data for revenue
+        $revenue_chart_data = $this->get_chart_data($form_id, $start_date, $end_date, $chart_mode, 'revenue');
+        $compare_revenue_chart_data = $compare_form_id ? $this->get_chart_data($compare_form_id, $start_date, $end_date, $chart_mode, 'revenue') : null;
+
+        // Get individual forms data for "All Forms" view (entries)
         $individual_forms_data = array();
+        $individual_revenue_data = array();
         if ($form_id === 0) {
             foreach ($forms as $form) {
-                $form_data = $this->get_chart_data($form['id'], $start_date, $end_date, $chart_mode);
+                $form_data = $this->get_chart_data($form['id'], $start_date, $end_date, $chart_mode, 'entries');
                 if (!empty($form_data['data'])) {
                     $individual_forms_data[] = array(
                         'label' => $form['title'],
                         'data' => $form_data['data'],
+                        'borderColor' => sprintf('#%06X', wp_rand(0, 0xFFFFFF)),
+                        'backgroundColor' => 'rgba(' . wp_rand(0, 255) . ',' . wp_rand(0, 255) . ',' . wp_rand(0, 255) . ',0.1)',
+                        'borderWidth' => 2,
+                        'fill' => true,
+                        'tension' => 0.4
+                    );
+                }
+                
+                // Get revenue data for individual forms
+                $form_revenue_data = $this->get_chart_data($form['id'], $start_date, $end_date, $chart_mode, 'revenue');
+                if (!empty($form_revenue_data['data'])) {
+                    $individual_revenue_data[] = array(
+                        'label' => $form['title'],
+                        'data' => $form_revenue_data['data'],
                         'borderColor' => sprintf('#%06X', wp_rand(0, 0xFFFFFF)),
                         'backgroundColor' => 'rgba(' . wp_rand(0, 255) . ',' . wp_rand(0, 255) . ',' . wp_rand(0, 255) . ',0.1)',
                         'borderWidth' => 2,
@@ -181,7 +200,7 @@ class GF_QuickReports {
     /**
      * Get chart data
      */
-    private function get_chart_data($form_id, $start_date = '', $end_date = '', $mode = 'per_day') {
+    private function get_chart_data($form_id, $start_date = '', $end_date = '', $mode = 'per_day', $type = 'entries') {
         global $wpdb;
 
         // Return empty data if no form selected
@@ -208,30 +227,118 @@ class GF_QuickReports {
         $table_name = GFFormsModel::get_entry_table_name();
 
         if ($mode === 'total') {
-            $query = "SELECT COUNT(*) as count FROM {$table_name} WHERE {$where}";
-            $result = $wpdb->get_var($query);
-            return array('labels' => array('Total'), 'data' => array((int)$result));
-        }
-
-        $query = "SELECT DATE(date_created) as date, COUNT(*) as count 
-                 FROM {$table_name} 
-                 WHERE {$where} 
-                 GROUP BY DATE(date_created) 
-                 ORDER BY date ASC";
-
-        $results = $wpdb->get_results($query);
-
-        $labels = array();
-        $data = array();
-
-        if (!empty($results)) {
-            foreach ($results as $row) {
-                $labels[] = gmdate('Y-m-d', strtotime($row->date));
-                $data[] = (int)$row->count;
+            if ($type === 'revenue') {
+                // For revenue totals, we need to calculate from entries
+                $query = "SELECT id FROM {$table_name} WHERE {$where}";
+                $entry_ids = $wpdb->get_col($query);
+                $total_revenue = $this->calculate_revenue_from_entries($entry_ids);
+                return array('labels' => array('Total'), 'data' => array($total_revenue));
+            } else {
+                // For entry totals
+                $query = "SELECT COUNT(*) as count FROM {$table_name} WHERE {$where}";
+                $result = $wpdb->get_var($query);
+                return array('labels' => array('Total'), 'data' => array((int)$result));
             }
         }
 
-        return array('labels' => $labels, 'data' => $data);
+        if ($type === 'revenue') {
+            // Get daily revenue data
+            $query = "SELECT DATE(date_created) as date, id FROM {$table_name} WHERE {$where} ORDER BY date ASC";
+            $results = $wpdb->get_results($query);
+            
+            $daily_revenue = array();
+            if (!empty($results)) {
+                foreach ($results as $row) {
+                    $date = gmdate('Y-m-d', strtotime($row->date));
+                    if (!isset($daily_revenue[$date])) {
+                        $daily_revenue[$date] = 0;
+                    }
+                    $daily_revenue[$date] += $this->calculate_revenue_from_entries(array($row->id));
+                }
+            }
+            
+            $labels = array();
+            $data = array();
+            
+            if (!empty($daily_revenue)) {
+                foreach ($daily_revenue as $date => $revenue) {
+                    $labels[] = $date;
+                    $data[] = round($revenue, 2);
+                }
+            }
+            
+            return array('labels' => $labels, 'data' => $data);
+        } else {
+            // Get daily entry counts (existing logic)
+            $query = "SELECT DATE(date_created) as date, COUNT(*) as count 
+                     FROM {$table_name} 
+                     WHERE {$where} 
+                     GROUP BY DATE(date_created) 
+                     ORDER BY date ASC";
+
+            $results = $wpdb->get_results($query);
+
+            $labels = array();
+            $data = array();
+
+            if (!empty($results)) {
+                foreach ($results as $row) {
+                    $labels[] = gmdate('Y-m-d', strtotime($row->date));
+                    $data[] = (int)$row->count;
+                }
+            }
+
+            return array('labels' => $labels, 'data' => $data);
+        }
+    }
+
+    /**
+     * Calculate revenue from entry IDs
+     */
+    private function calculate_revenue_from_entries($entry_ids) {
+        if (empty($entry_ids)) {
+            return 0;
+        }
+
+        $total_revenue = 0;
+        
+        foreach ($entry_ids as $entry_id) {
+            $entry = GFAPI::get_entry($entry_id);
+            if (!$entry || $entry['status'] !== 'active') {
+                continue;
+            }
+            
+            $form = GFAPI::get_form($entry['form_id']);
+            if (!$form) {
+                continue;
+            }
+            
+            // Find product fields
+            $product_fields = array();
+            foreach ($form['fields'] as $field) {
+                if (isset($field['type']) && $field['type'] === 'product') {
+                    $product_fields[] = $field['id'];
+                }
+            }
+            
+            // Calculate revenue for this entry
+            if (!empty($product_fields)) {
+                foreach ($product_fields as $pid) {
+                    $val = rgar($entry, $pid);
+                    if (is_numeric($val)) {
+                        $total_revenue += floatval($val);
+                    } elseif (is_array($val) && isset($val['price'])) {
+                        $total_revenue += floatval($val['price']);
+                    } elseif (is_string($val)) {
+                        if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                            $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                        }
+                    }
+                }
+            }
+        }
+        
+        return $total_revenue;
     }
 
     /**
@@ -504,6 +611,7 @@ class GF_QuickReports {
         $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
         $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
         $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
+        $revenue_chart_data = isset($_POST['revenue_chart_data']) ? $_POST['revenue_chart_data'] : '';
 
         // Get search criteria
         $search_criteria = array('status' => 'active');
@@ -539,7 +647,16 @@ class GF_QuickReports {
             // Add chart image if provided
             if (!empty($chart_data)) {
                 $html .= '<div class="chart-container">';
+                $html .= '<h3>Entries Over Time</h3>';
                 $html .= '<img src="' . $chart_data . '">';
+                $html .= '</div>';
+            }
+            
+            // Add revenue chart image if provided
+            if (!empty($revenue_chart_data)) {
+                $html .= '<div class="chart-container">';
+                $html .= '<h3>Revenue Over Time</h3>';
+                $html .= '<img src="' . $revenue_chart_data . '">';
                 $html .= '</div>';
             }
             

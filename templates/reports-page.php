@@ -398,16 +398,31 @@ if ($date_preset && $date_preset !== 'custom') {
                 <canvas id="entriesChart" width="400" height="200"></canvas>
                 <div id="chartjs-no-data" style="display:none; color:#888; text-align:center; margin-top:20px;"><?php esc_html_e('No data for this period.', 'gf-quickreports'); ?></div>
             </div>
+            
+            <!-- Revenue Chart Container -->
+            <div class="chart-container">
+                <h3><?php echo $selected_form === 'all' ? esc_html__('All Forms - Revenue Over Time', 'gf-quickreports') : esc_html__('Revenue Over Time', 'gf-quickreports'); ?></h3>
+                <canvas id="revenueChart" width="400" height="200"></canvas>
+                <div id="revenue-chartjs-no-data" style="display:none; color:#888; text-align:center; margin-top:20px;"><?php esc_html_e('No revenue data for this period.', 'gf-quickreports'); ?></div>
+            </div>
             <?php
             // Add inline script to footer to ensure proper loading order
             $chart_labels = array_keys($daily_entries);
             $chart_data_values = array_values($show_by === 'per_day' ? $daily_entries : [array_sum($daily_entries)]);
+            
+            // Get revenue data from the PHP variables
+            $revenue_chart_labels = isset($revenue_chart_data['labels']) ? $revenue_chart_data['labels'] : array();
+            $revenue_chart_data_values = isset($revenue_chart_data['data']) ? $revenue_chart_data['data'] : array();
             
             $chart_script = "
             window.chartMode = " . json_encode($show_by) . ";
             window.chartData = {
                 labels: " . json_encode($chart_labels) . ",
                 data: " . json_encode($chart_data_values) . "
+            };
+            window.revenueChartData = {
+                labels: " . json_encode($revenue_chart_labels) . ",
+                data: " . json_encode($revenue_chart_data_values) . "
             };
             window.selectedFormLabel = " . json_encode($selected_form === 'all' ? 'All Forms' : $form['title']) . ";";
             
@@ -417,7 +432,8 @@ if ($date_preset && $date_preset !== 'custom') {
                 
                 $chart_script .= "
             window.chartView = " . json_encode($chart_view) . ";
-            window.individualFormsData = [];";
+            window.individualFormsData = [];
+            window.individualRevenueData = [];";
                 
                 // Define colors for different forms
                 $colors = array(
@@ -448,6 +464,28 @@ if ($date_preset && $date_preset !== 'custom') {
             });";
                     }
                 }
+                
+                // Add individual revenue data
+                if (isset($individual_revenue_data)) {
+                    foreach ($individual_revenue_data as $index => $revenue_form_data) {
+                        $color_index = $index % count($colors);
+                        $chart_script .= "
+            window.individualRevenueData.push({
+                label: " . json_encode($revenue_form_data['label']) . ",
+                data: " . json_encode($revenue_form_data['data']) . ",
+                borderColor: " . json_encode($colors[$color_index]) . ",
+                backgroundColor: " . json_encode(str_replace(')', ', 0.1)', $colors[$color_index])) . ",
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointBackgroundColor: " . json_encode($colors[$color_index]) . ",
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            });";
+                    }
+                }
             }
             
             if ($compare_form) {
@@ -457,6 +495,15 @@ if ($date_preset && $date_preset !== 'custom') {
                 labels: window.chartData.labels,
                 data: " . json_encode($compare_data_values) . "
             };";
+                
+                // Add comparison revenue data
+                if (isset($compare_revenue_chart_data)) {
+                    $chart_script .= "
+            window.compareRevenueChartData = {
+                labels: " . json_encode($compare_revenue_chart_data['labels']) . ",
+                data: " . json_encode($compare_revenue_chart_data['data']) . "
+            };";
+                }
             }
             
             wp_add_inline_script('gf-quickreports-admin', $chart_script, 'before');
