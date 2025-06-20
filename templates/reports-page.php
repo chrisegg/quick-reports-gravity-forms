@@ -421,16 +421,10 @@ if ($date_preset && $date_preset !== 'custom') {
             error_log('- $revenue_chart_labels: ' . print_r($revenue_chart_labels, true));
             error_log('- $revenue_chart_data_values: ' . print_r($revenue_chart_data_values, true));
             
+            // If no revenue data from PHP backend, use the same labels as entries but with empty revenue data
             if (empty($revenue_chart_labels) && empty($revenue_chart_data_values)) {
-                // Try to get revenue data from the PHP backend variables
-                if (isset($revenue_chart_data) && is_array($revenue_chart_data)) {
-                    $revenue_chart_labels = isset($revenue_chart_data['labels']) ? $revenue_chart_data['labels'] : array();
-                    $revenue_chart_data_values = isset($revenue_chart_data['data']) ? $revenue_chart_data['data'] : array();
-                } else {
-                    // Create empty arrays if no revenue data available
-                    $revenue_chart_labels = array();
-                    $revenue_chart_data_values = array();
-                }
+                $revenue_chart_labels = $chart_labels; // Use same labels as entries
+                $revenue_chart_data_values = array_fill(0, count($chart_labels), 0); // Fill with zeros
             }
             
             $chart_script = "
