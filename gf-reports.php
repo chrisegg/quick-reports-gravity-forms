@@ -78,7 +78,7 @@ class GF_QuickReports {
      */
     public function add_menu_page() {
         add_submenu_page(
-            'gf_edit_forms',
+            'gform_forms',
             __('Quick Reports', 'gf-quickreports'),
             __('Quick Reports', 'gf-quickreports'),
             'manage_options',
@@ -91,7 +91,7 @@ class GF_QuickReports {
      * Enqueue assets
      */
     public function enqueue_assets($hook) {
-        if ($hook !== 'forms_page_gf_quickreports') {
+        if ($hook !== 'gravity-forms_page_gf_quickreports') {
             return;
         }
 
