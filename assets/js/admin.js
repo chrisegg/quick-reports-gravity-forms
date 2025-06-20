@@ -20,51 +20,54 @@ jQuery(document).ready(function($) {
     });
     
     // Form validation and submission handling
-    $('form').on('submit', function(e) {
+    $('#gf-quickreports-form').on('submit', function(e) {
+        e.preventDefault();
+        
         var formId = $('#form_id').val();
         var preset = $('#date_preset').val();
         var compareFormId = $('#compare_form_id').val();
-        
-        console.log('Form submission - Form ID:', formId);
-        console.log('Form submission - Compare Form ID from dropdown:', compareFormId);
-        console.log('Form submission - Compare Form ID from URL:', new URLSearchParams(window.location.search).get('compare_form_id'));
-        console.log('Form submission - Is populating compare dropdown:', isPopulatingCompareDropdown);
+        var isPopulatingCompareDropdown = $('#compare_form_id').data('populating');
         
         // Check form selection
         if (!formId) {
-            e.preventDefault();
             showNotice('Please select a form to generate a report.', 'error');
             return false;
         }
         
-        // If the comparison dropdown is still being populated, wait a moment
-        if (isPopulatingCompareDropdown) {
-            console.log('Waiting for comparison dropdown to finish populating...');
-            setTimeout(function() {
-                $('form').submit();
-            }, 100);
-            e.preventDefault();
-            return false;
+        // If no comparison form ID from dropdown, try to get it from URL
+        if (!compareFormId) {
+            compareFormId = new URLSearchParams(window.location.search).get('compare_form_id');
         }
         
-        // Preserve comparison form selection by updating hidden input
+        // If comparison dropdown is still populating, wait for it to finish
+        if (isPopulatingCompareDropdown) {
+            var checkInterval = setInterval(function() {
+                if (!$('#compare_form_id').data('populating')) {
+                    clearInterval(checkInterval);
+                    $('#gf-quickreports-form').submit();
+                }
+            }, 100);
+            return;
+        }
+        
+        // Preserve comparison form ID in URL if selected
         if (compareFormId) {
-            $('#current_compare_form_id').val(compareFormId);
-            console.log('Preserving comparison form ID:', compareFormId);
+            var url = new URL(window.location);
+            url.searchParams.set('compare_form_id', compareFormId);
+            window.history.replaceState({}, '', url);
         } else {
-            // If no value in dropdown, try to get from URL
-            var urlCompareFormId = new URLSearchParams(window.location.search).get('compare_form_id');
-            if (urlCompareFormId) {
-                $('#current_compare_form_id').val(urlCompareFormId);
-                console.log('Preserving comparison form ID from URL:', urlCompareFormId);
-            }
+            // Remove from URL if not selected
+            var url = new URL(window.location);
+            url.searchParams.delete('compare_form_id');
+            window.history.replaceState({}, '', url);
         }
         
         // Handle date preset validation
         if (preset !== 'custom') {
             // For non-custom presets, we don't need to validate date fields
             // The server will handle the preset logic
-            return true;
+            this.submit();
+            return;
         }
         
         // For custom range, validate the date fields
@@ -72,30 +75,27 @@ jQuery(document).ready(function($) {
         var endDate = $('#end_date').val();
         
         if (!startDate || !endDate) {
-            e.preventDefault();
             showNotice('Please select both start and end dates for custom range.', 'error');
             return false;
         }
         
         if (new Date(startDate) > new Date(endDate)) {
-            e.preventDefault();
             showNotice('Start date cannot be after end date.', 'error');
             return false;
         }
+        
+        // Submit the form
+        this.submit();
     });
     
     // Form selection change - update compare form options
     $('#form_id').on('change', function() {
         var selectedForm = $(this).val();
-        console.log('Form selection changed to:', selectedForm);
         
         // Immediately update compare form options
         if (selectedForm && selectedForm !== 'all') {
-            console.log('Selected form is valid, updating compare options');
-            // Enable and populate compare form dropdown immediately
             updateCompareFormOptions(selectedForm);
         } else {
-            console.log('Selected form is invalid or "all", disabling compare dropdown');
             // Disable compare form dropdown for "All Forms" or no selection
             $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
         }
@@ -295,15 +295,9 @@ jQuery(document).ready(function($) {
         var endDate = $('#end_date').val();
         var compareFormId = $('#compare_form_id').val();
         
-        console.log('Export called with type:', type);
-        console.log('Form ID:', formId);
-        console.log('Compare Form ID from dropdown:', compareFormId);
-        console.log('Compare Form ID from URL:', new URLSearchParams(window.location.search).get('compare_form_id'));
-        
         // If no comparison form ID from dropdown, try to get it from URL
         if (!compareFormId) {
             compareFormId = new URLSearchParams(window.location.search).get('compare_form_id');
-            console.log('Using comparison form ID from URL:', compareFormId);
         }
         
         if (!formId) {
@@ -326,25 +320,45 @@ jQuery(document).ready(function($) {
         
         // Add comparison form ID if selected
         if (compareFormId) {
-            console.log('Adding comparison form ID to export:', compareFormId);
             formData.append('compare_form_id', compareFormId);
-        } else {
-            console.log('No comparison form ID to add');
         }
 
         // For PDF export, include the chart as an image
-        if (type === 'pdf' && window.currentChart) {
+        if (type === 'pdf') {
             try {
                 var chartCanvas = document.getElementById('entriesChart');
-                var chartImage = chartCanvas.toDataURL('image/png');
-                formData.append('chart_data', chartImage);
+                if (chartCanvas && window.currentChart) {
+                    // Ensure chart is fully rendered
+                    window.currentChart.update('none');
+                    
+                    // Wait a moment for the chart to render, then capture
+                    setTimeout(function() {
+                        try {
+                            var chartImage = chartCanvas.toDataURL('image/png', 1.0);
+                            formData.append('chart_data', chartImage);
+                            
+                            // Continue with the export
+                            performExport(formData, type, $button, originalText);
+                        } catch (e) {
+                            // Continue without chart image
+                            performExport(formData, type, $button, originalText);
+                        }
+                    }, 100);
+                    return; // Exit early, will continue in setTimeout
+                }
             } catch (e) {
-                showNotice('Error capturing chart for PDF. Please try again.', 'error');
-                $button.text(originalText).prop('disabled', false);
-                return;
+                // Continue without chart image
             }
         }
         
+        // For CSV or if chart capture failed, proceed immediately
+        performExport(formData, type, $button, originalText);
+    }
+    
+    /**
+     * Perform the actual export AJAX request
+     */
+    function performExport(formData, type, $button, originalText) {
         // Make AJAX request
         $.ajax({
             url: gf_quickreports_ajax.ajax_url,
@@ -371,7 +385,7 @@ jQuery(document).ready(function($) {
                     var url = window.URL.createObjectURL(blob);
                     var a = document.createElement('a');
                     a.href = url;
-                    a.download = 'gf-quickreports-' + formId + '-' + new Date().toISOString().split('T')[0] + '.' + type;
+                    a.download = 'gf-quickreports-' + formData.get('form_id') + '-' + new Date().toISOString().split('T')[0] + '.' + type;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -407,22 +421,15 @@ jQuery(document).ready(function($) {
         var currentCompareFormId = $('#current_compare_form_id').val();
         var existingCompareFormId = $('#compare_form_id').val();
         
-        console.log('Initializing page with form ID:', selectedForm);
-        console.log('Current compare form ID from hidden input:', currentCompareFormId);
-        console.log('Existing compare form ID from dropdown:', existingCompareFormId);
-        
         if (selectedForm && selectedForm !== 'all') {
             // If a form is selected and there's a comparison form already selected, populate the dropdown
             if (currentCompareFormId || existingCompareFormId) {
                 var compareFormIdToUse = currentCompareFormId || existingCompareFormId;
-                console.log('Populating compare dropdown with preserved value:', compareFormIdToUse);
                 updateCompareFormOptions(selectedForm, compareFormIdToUse);
             } else {
-                console.log('No preserved comparison form, populating dropdown normally');
                 updateCompareFormOptions(selectedForm);
             }
         } else {
-            console.log('No valid form selected or "All Forms" selected, disabling compare dropdown');
             // Disable compare form dropdown for "All Forms" or no selection
             $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
         }
@@ -548,18 +555,13 @@ jQuery(document).ready(function($) {
      * Update compare form options via AJAX
      */
     function updateCompareFormOptions(selectedForm, preserveValue) {
-        console.log('updateCompareFormOptions called with:', selectedForm, preserveValue);
-        
         if (!selectedForm || selectedForm === 'all') {
-            console.log('No valid form selected, disabling compare dropdown');
+            // Disable compare form dropdown for "All Forms" or no selection
             $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
             return;
         }
         
         isPopulatingCompareDropdown = true;
-        console.log('Making AJAX call to get compare forms');
-        console.log('AJAX URL:', gf_quickreports_ajax.ajax_url);
-        console.log('Nonce:', gf_quickreports_ajax.nonce);
         $.ajax({
             url: gf_quickreports_ajax.ajax_url,
             type: 'POST',
@@ -569,12 +571,10 @@ jQuery(document).ready(function($) {
                 selected_form: selectedForm
             },
             success: function(response) {
-                console.log('AJAX response received:', response);
                 if (response.success) {
                     var $select = $('#compare_form_id');
                     $select.html('<option value="">Compare With...</option>');
                     
-                    console.log('Adding options:', response.data.options);
                     response.data.options.forEach(function(option) {
                         var $option = $('<option>', {
                             value: option.value,
@@ -583,7 +583,6 @@ jQuery(document).ready(function($) {
                         
                         // Preserve the selected value if provided
                         if (preserveValue && option.value == preserveValue) {
-                            console.log('Setting option as selected:', option.value, option.label);
                             $option.prop('selected', true);
                         }
                         
@@ -591,8 +590,6 @@ jQuery(document).ready(function($) {
                     });
                     
                     $select.prop('disabled', false);
-                    console.log('Compare dropdown updated successfully');
-                    console.log('Final selected value:', $select.val());
                 } else {
                     console.error('AJAX response indicates failure:', response);
                 }
