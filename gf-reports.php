@@ -134,7 +134,7 @@ class GF_QuickReports {
     public function render_reports_page() {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('You do not have sufficient permissions to access this page.', 'gf-quickreports'));
+            wp_die(__('You do not have sufficient permissions to access this page.', 'gf-quickreports'));
         }
 
         // Get forms
@@ -500,7 +500,7 @@ class GF_QuickReports {
             
         } catch (Exception $e) {
             error_log('GF QuickReports: CSV export error: ' . $e->getMessage());
-            wp_die(esc_html('Error generating CSV: ' . $e->getMessage()));
+            wp_die('Error generating CSV: ' . esc_html($e->getMessage()));
         }
     }
 
@@ -829,7 +829,7 @@ class GF_QuickReports {
             exit;
             
         } catch (Exception $e) {
-            wp_die(esc_html('Error generating PDF: ' . $e->getMessage()));
+            wp_die('Error generating PDF: ' . esc_html($e->getMessage()));
         }
     }
 
