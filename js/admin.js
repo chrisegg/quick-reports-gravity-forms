@@ -20,12 +20,22 @@ jQuery(document).ready(function($) {
     $('form').on('submit', function(e) {
         var formId = $('#form_id').val();
         var preset = $('#date_preset').val();
+        var compareFormId = $('#compare_form_id').val();
+        
+        console.log('Form submission - Form ID:', formId);
+        console.log('Form submission - Compare Form ID:', compareFormId);
         
         // Check form selection
         if (!formId) {
             e.preventDefault();
             showNotice('Please select a form to generate a report.', 'error');
             return false;
+        }
+        
+        // Preserve comparison form selection by updating hidden input
+        if (compareFormId) {
+            $('#current_compare_form_id').val(compareFormId);
+            console.log('Preserving comparison form ID:', compareFormId);
         }
         
         // Handle date preset validation
@@ -265,9 +275,14 @@ jQuery(document).ready(function($) {
         
         console.log('Export called with type:', type);
         console.log('Form ID:', formId);
-        console.log('Compare Form ID:', compareFormId);
-        console.log('Start Date:', startDate);
-        console.log('End Date:', endDate);
+        console.log('Compare Form ID from dropdown:', compareFormId);
+        console.log('Compare Form ID from URL:', new URLSearchParams(window.location.search).get('compare_form_id'));
+        
+        // If no comparison form ID from dropdown, try to get it from URL
+        if (!compareFormId) {
+            compareFormId = new URLSearchParams(window.location.search).get('compare_form_id');
+            console.log('Using comparison form ID from URL:', compareFormId);
+        }
         
         if (!formId) {
             showNotice('Please select a form to export.', 'error');
@@ -368,15 +383,24 @@ jQuery(document).ready(function($) {
         // Initialize compare form options on page load
         var selectedForm = $('#form_id').val();
         var currentCompareFormId = $('#current_compare_form_id').val();
+        var existingCompareFormId = $('#compare_form_id').val();
+        
+        console.log('Initializing page with form ID:', selectedForm);
+        console.log('Current compare form ID from hidden input:', currentCompareFormId);
+        console.log('Existing compare form ID from dropdown:', existingCompareFormId);
         
         if (selectedForm && selectedForm !== 'all') {
             // If a form is selected and there's a comparison form already selected, populate the dropdown
-            if (currentCompareFormId) {
-                updateCompareFormOptions(selectedForm, currentCompareFormId);
+            if (currentCompareFormId || existingCompareFormId) {
+                var compareFormIdToUse = currentCompareFormId || existingCompareFormId;
+                console.log('Populating compare dropdown with preserved value:', compareFormIdToUse);
+                updateCompareFormOptions(selectedForm, compareFormIdToUse);
             } else {
+                console.log('No preserved comparison form, populating dropdown normally');
                 updateCompareFormOptions(selectedForm);
             }
         } else {
+            console.log('No valid form selected or "All Forms" selected, disabling compare dropdown');
             // Disable compare form dropdown for "All Forms" or no selection
             $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
         }

@@ -89,6 +89,16 @@ if ($date_preset && $date_preset !== 'custom') {
                 <label for="compare_form_id" class="screen-reader-text"><?php _e('Compare With', 'gf-quickreports'); ?></label>
                 <select name="compare_form_id" id="compare_form_id" <?php echo ($selected_form === 'all' || !$selected_form) ? 'disabled' : ''; ?>>
                     <option value=""><?php _e('Compare With...', 'gf-quickreports'); ?></option>
+                    <?php 
+                    // Add the currently selected comparison form as an option if it exists
+                    $current_compare_form_id = isset($_GET['compare_form_id']) ? $_GET['compare_form_id'] : '';
+                    if ($current_compare_form_id && $selected_form && $selected_form !== 'all') {
+                        $compare_form_obj = GFAPI::get_form($current_compare_form_id);
+                        if ($compare_form_obj) {
+                            echo '<option value="' . esc_attr($current_compare_form_id) . '" selected>' . esc_html($compare_form_obj['title']) . '</option>';
+                        }
+                    }
+                    ?>
                 </select>
             </div>
             <div class="alignleft actions">
