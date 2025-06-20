@@ -414,11 +414,6 @@ if ($date_preset && $date_preset !== 'custom') {
             $revenue_chart_labels = isset($revenue_chart_data['labels']) ? $revenue_chart_data['labels'] : array();
             $revenue_chart_data_values = isset($revenue_chart_data['data']) ? $revenue_chart_data['data'] : array();
             
-            // Debug: Check if revenue data is available
-            error_log('GF QuickReports Template Debug - Revenue Chart Data: ' . print_r($revenue_chart_data, true));
-            error_log('GF QuickReports Template Debug - Revenue Labels: ' . print_r($revenue_chart_labels, true));
-            error_log('GF QuickReports Template Debug - Revenue Values: ' . print_r($revenue_chart_data_values, true));
-            
             if (empty($revenue_chart_labels) && empty($revenue_chart_data_values)) {
                 // Try to get revenue data from the PHP backend variables
                 if (isset($revenue_chart_data) && is_array($revenue_chart_data)) {
@@ -501,6 +496,71 @@ if ($date_preset && $date_preset !== 'custom') {
                 pointRadius: 3,
                 pointHoverRadius: 5
             });";
+                    }
+                } else {
+                    // Generate individual revenue data for each form if not provided from PHP backend
+                    foreach ($all_forms_data as $index => $form_data) {
+                        if ($form_data['has_products'] && $form_data['revenue'] > 0) {
+                            // For "All Forms" view, we need to get daily revenue data for each form
+                            $form_daily_revenue = array();
+                            
+                            // Get entries for this form in the date range
+                            $form_search_criteria = array(
+                                'status' => 'active',
+                                'start_date' => $start_date . ' 00:00:00',
+                                'end_date' => $end_date . ' 23:59:59'
+                            );
+                            $form_entries = GFAPI::get_entries($form_data['form_id'], $form_search_criteria);
+                            
+                            // Calculate daily revenue for this form
+                            $current_date = $start_date;
+                            while (strtotime($current_date) <= strtotime($end_date)) {
+                                $day_revenue = 0;
+                                $day_entries = array_filter($form_entries, function($entry) use ($current_date) {
+                                    return gmdate('Y-m-d', strtotime($entry['date_created'])) === $current_date;
+                                });
+                                
+                                foreach ($day_entries as $entry) {
+                                    $form_obj = GFAPI::get_form($form_data['form_id']);
+                                    foreach ($form_obj['fields'] as $field) {
+                                        if (isset($field['type']) && $field['type'] === 'product') {
+                                            $val = rgar($entry, $field['id']);
+                                            if (is_numeric($val)) {
+                                                $day_revenue += floatval($val);
+                                            } elseif (is_array($val) && isset($val['price'])) {
+                                                $day_revenue += floatval($val['price']);
+                                            } elseif (is_string($val)) {
+                                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                                    $day_revenue += floatval(str_replace(',', '', $matches[1]));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                $form_daily_revenue[gmdate('M j', strtotime($current_date))] = $day_revenue;
+                                $current_date = gmdate('Y-m-d', strtotime($current_date . ' +1 day'));
+                            }
+                            
+                            $form_revenue_values = array_values($show_by === 'per_day' ? $form_daily_revenue : [array_sum($form_daily_revenue)]);
+                            $color_index = $index % count($colors);
+                            
+                            $chart_script .= "
+            window.individualRevenueData.push({
+                label: " . json_encode($form_data['form_title']) . ",
+                data: " . json_encode($form_revenue_values) . ",
+                borderColor: " . json_encode($colors[$color_index]) . ",
+                backgroundColor: " . json_encode(str_replace(')', ', 0.1)', $colors[$color_index])) . ",
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointBackgroundColor: " . json_encode($colors[$color_index]) . ",
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            });";
+                        }
                     }
                 }
             }
