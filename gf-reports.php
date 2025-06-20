@@ -301,19 +301,12 @@ class GF_QuickReports {
         }
 
         // Get form data
-        $form_id = isset($_POST['form_id']) ? absint(wp_unslash($_POST['form_id'])) : 0;
-        $compare_form_id = isset($_POST['compare_form_id']) ? absint(wp_unslash($_POST['compare_form_id'])) : 0;
+        $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
+        $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
         $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
         $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
-        $show_by = isset($_POST['show_by']) ? sanitize_text_field(wp_unslash($_POST['show_by'])) : 'total';
 
-        // Get form data
-        $form = GFAPI::get_form($form_id);
-        if (!$form) {
-            wp_die('Form not found');
-        }
-
-        // Get entries
+        // Get search criteria
         $search_criteria = array('status' => 'active');
         if (!empty($start_date)) {
             $search_criteria['start_date'] = $start_date . ' 00:00:00';
@@ -322,44 +315,136 @@ class GF_QuickReports {
             $search_criteria['end_date'] = $end_date . ' 23:59:59';
         }
 
-        $entries = GFAPI::get_entries($form_id, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
+        // Clear any previous output and disable compression
+        if (ob_get_length()) ob_clean();
+        if (ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
+        
+        // Set headers for CSV download
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . gmdate('Y-m-d') . '.csv"');
+        
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // Add UTF-8 BOM
 
-        // Get product fields for revenue calculation
-        $product_fields = array();
-        foreach ($form['fields'] as $field) {
-            if (isset($field['type']) && $field['type'] === 'product') {
-                $product_fields[] = $field['id'];
+        if ($form_id === 'all') {
+            // Export data for all forms
+            $forms = GFAPI::get_forms();
+            
+            // Write summary headers
+            fputcsv($output, array('Form Name', 'Total Entries', 'Average Per Day', 'Total Revenue'));
+            
+            $total_entries = 0;
+            $total_revenue = 0;
+            $total_days = 0;
+            
+            foreach ($forms as $form) {
+                $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
+                $entries = GFAPI::get_entries($form['id'], $search_criteria);
+                $daily_entries = self::get_daily_entries($form['id'], $start_date, $end_date);
+                $days_count = count($daily_entries);
+                $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
+                
+                // Calculate revenue
+                $form_revenue = 0;
+                $product_fields = array();
+                foreach ($form['fields'] as $field) {
+                    if (isset($field['type']) && $field['type'] === 'product') {
+                        $product_fields[] = $field['id'];
+                    }
+                }
+                
+                if (!empty($product_fields) && !empty($entries)) {
+                    foreach ($entries as $entry) {
+                        foreach ($product_fields as $pid) {
+                            $val = rgar($entry, $pid);
+                            if (is_numeric($val)) {
+                                $form_revenue += floatval($val);
+                            } elseif (is_array($val) && isset($val['price'])) {
+                                $form_revenue += floatval($val['price']);
+                            } elseif (is_string($val)) {
+                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                    $form_revenue += floatval(str_replace(',', '', $matches[1]));
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                fputcsv($output, array(
+                    $form['title'],
+                    $entry_count,
+                    number_format($avg_per_day, 2),
+                    !empty($product_fields) ? '$' . number_format($form_revenue, 2) : 'N/A'
+                ));
+                
+                $total_entries += $entry_count;
+                $total_revenue += $form_revenue;
+                $total_days = max($total_days, $days_count);
             }
-        }
-
-        // Calculate revenue
-        $total_revenue = 0;
-        if (!empty($product_fields)) {
-            foreach ($entries as $entry) {
-                foreach ($product_fields as $pid) {
-                    $val = rgar($entry, $pid);
-                    if (is_numeric($val)) {
-                        $total_revenue += floatval($val);
-                    } elseif (is_array($val) && isset($val['price'])) {
-                        $total_revenue += floatval($val['price']);
-                    } elseif (is_string($val)) {
-                        if (preg_match('/([\d\.,]+)/', $val, $matches)) {
-                            $total_revenue += floatval(str_replace(',', '', $matches[1]));
+            
+            // Write totals
+            fputcsv($output, array(''));
+            fputcsv($output, array(
+                'TOTAL',
+                $total_entries,
+                $total_days > 0 ? number_format($total_entries / $total_days, 2) : '0.00',
+                '$' . number_format($total_revenue, 2)
+            ));
+            
+        } else {
+            // Export data for single form
+            $form = GFAPI::get_form($form_id);
+            $entries = GFAPI::get_entries($form_id, $search_criteria);
+            $entry_count = count($entries);
+            $daily_entries = self::get_daily_entries($form_id, $start_date, $end_date);
+            $days_count = count($daily_entries);
+            $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
+            
+            // Calculate revenue
+            $total_revenue = 0;
+            $product_fields = array();
+            foreach ($form['fields'] as $field) {
+                if (isset($field['type']) && $field['type'] === 'product') {
+                    $product_fields[] = $field['id'];
+                }
+            }
+            
+            if (!empty($product_fields) && !empty($entries)) {
+                foreach ($entries as $entry) {
+                    foreach ($product_fields as $pid) {
+                        $val = rgar($entry, $pid);
+                        if (is_numeric($val)) {
+                            $total_revenue += floatval($val);
+                        } elseif (is_array($val) && isset($val['price'])) {
+                            $total_revenue += floatval($val['price']);
+                        } elseif (is_string($val)) {
+                            if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Get comparison form data if provided
-        $compare_data = null;
-        if ($compare_form_id) {
-            $compare_form = GFAPI::get_form($compare_form_id);
-            if ($compare_form) {
-                $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
+            // Write summary data for main form
+            fputcsv($output, array('Form Name', 'Total Entries', 'Average Per Day', 'Total Revenue'));
+            fputcsv($output, array(
+                $form['title'],
+                $entry_count,
+                number_format($avg_per_day, 2),
+                !empty($product_fields) ? '$' . number_format($total_revenue, 2) : 'N/A'
+            ));
+            
+            // Add comparison form data if selected
+            if ($compare_form_id) {
+                $compare_form = GFAPI::get_form($compare_form_id);
+                $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria);
                 $compare_entry_count = count($compare_entries);
+                $compare_daily_entries = self::get_daily_entries($compare_form_id, $start_date, $end_date);
+                $compare_days_count = count($compare_daily_entries);
+                $compare_avg_per_day = $compare_days_count > 0 ? $compare_entry_count / $compare_days_count : 0;
                 
-                // Calculate comparison revenue
+                // Calculate comparison form revenue
                 $compare_total_revenue = 0;
                 $compare_product_fields = array();
                 foreach ($compare_form['fields'] as $field) {
@@ -368,7 +453,7 @@ class GF_QuickReports {
                     }
                 }
                 
-                if (!empty($compare_product_fields)) {
+                if (!empty($compare_product_fields) && !empty($compare_entries)) {
                     foreach ($compare_entries as $entry) {
                         foreach ($compare_product_fields as $pid) {
                             $val = rgar($entry, $pid);
@@ -385,78 +470,18 @@ class GF_QuickReports {
                     }
                 }
                 
-                $compare_data = array(
-                    'form_title' => $compare_form['title'],
-                    'entry_count' => $compare_entry_count,
-                    'total_revenue' => $compare_total_revenue
-                );
+                // Write comparison form data
+                fputcsv($output, array(
+                    $compare_form['title'],
+                    $compare_entry_count,
+                    number_format($compare_avg_per_day, 2),
+                    !empty($compare_product_fields) ? '$' . number_format($compare_total_revenue, 2) : 'N/A'
+                ));
             }
         }
-
-        // Generate CSV content
-        try {
-            $filename = 'gf-quickreports-' . sanitize_title($form['title']) . '-' . gmdate('Y-m-d') . '.csv';
-            
-            header('Content-Type: text/csv');
-            header('Content-Disposition: attachment; filename="' . $filename . '"');
-            header('Pragma: no-cache');
-            header('Expires: 0');
-            
-            $output = fopen('php://output', 'w');
-            
-            // Write summary data
-            fputcsv($output, array('Report Summary'));
-            fputcsv($output, array('Form', $form['title']));
-            fputcsv($output, array('Date Range', $start_date . ' to ' . $end_date));
-            fputcsv($output, array('Total Entries', count($entries)));
-            fputcsv($output, array('Total Revenue', '$' . number_format($total_revenue, 2)));
-            
-            if ($compare_data) {
-                fputcsv($output, array(''));
-                fputcsv($output, array('Comparison Form', $compare_data['form_title']));
-                fputcsv($output, array('Comparison Entries', $compare_data['entry_count']));
-                fputcsv($output, array('Comparison Revenue', '$' . number_format($compare_data['total_revenue'], 2)));
-            }
-            
-            fputcsv($output, array(''));
-            fputcsv($output, array('Detailed Entries'));
-            
-            // Write headers
-            $headers = array('Entry ID', 'Date Created', 'IP Address');
-            foreach ($form['fields'] as $field) {
-                if (!isset($field['adminOnly']) || !$field['adminOnly']) {
-                    $headers[] = $field['label'];
-                }
-            }
-            fputcsv($output, $headers);
-            
-            // Write entry data
-            foreach ($entries as $entry) {
-                $row = array(
-                    $entry['id'],
-                    $entry['date_created'],
-                    $entry['ip']
-                );
-                
-                foreach ($form['fields'] as $field) {
-                    if (!isset($field['adminOnly']) || !$field['adminOnly']) {
-                        $value = rgar($entry, $field['id']);
-                        if (is_array($value)) {
-                            $value = implode(', ', $value);
-                        }
-                        $row[] = $value;
-                    }
-                }
-                
-                fputcsv($output, $row);
-            }
-            
-            fclose($output);
-            exit;
-            
-        } catch (Exception $e) {
-            wp_die('Export failed: ' . $e->getMessage());
-        }
+        
+        fclose($output);
+        exit;
     }
 
     /**
@@ -474,19 +499,13 @@ class GF_QuickReports {
         }
 
         // Get form data
-        $form_id = isset($_POST['form_id']) ? absint(wp_unslash($_POST['form_id'])) : 0;
-        $compare_form_id = isset($_POST['compare_form_id']) ? absint(wp_unslash($_POST['compare_form_id'])) : 0;
+        $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
+        $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
         $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
         $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
-        $show_by = isset($_POST['show_by']) ? sanitize_text_field(wp_unslash($_POST['show_by'])) : 'total';
+        $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
 
-        // Get form data
-        $form = GFAPI::get_form($form_id);
-        if (!$form) {
-            wp_die('Form not found');
-        }
-
-        // Get entries
+        // Get search criteria
         $search_criteria = array('status' => 'active');
         if (!empty($start_date)) {
             $search_criteria['start_date'] = $start_date . ' 00:00:00';
@@ -495,83 +514,6 @@ class GF_QuickReports {
             $search_criteria['end_date'] = $end_date . ' 23:59:59';
         }
 
-        $entries = GFAPI::get_entries($form_id, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
-        $entry_count = count($entries);
-
-        // Get product fields for revenue calculation
-        $product_fields = array();
-        foreach ($form['fields'] as $field) {
-            if (isset($field['type']) && $field['type'] === 'product') {
-                $product_fields[] = $field['id'];
-            }
-        }
-
-        // Calculate revenue
-        $total_revenue = 0;
-        if (!empty($product_fields)) {
-            foreach ($entries as $entry) {
-                foreach ($product_fields as $pid) {
-                    $val = rgar($entry, $pid);
-                    if (is_numeric($val)) {
-                        $total_revenue += floatval($val);
-                    } elseif (is_array($val) && isset($val['price'])) {
-                        $total_revenue += floatval($val['price']);
-                    } elseif (is_string($val)) {
-                        if (preg_match('/([\d\.,]+)/', $val, $matches)) {
-                            $total_revenue += floatval(str_replace(',', '', $matches[1]));
-                        }
-                    }
-                }
-            }
-        }
-
-        // Get comparison form data if provided
-        $compare_data = null;
-        if ($compare_form_id) {
-            $compare_form = GFAPI::get_form($compare_form_id);
-            if ($compare_form) {
-                $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria, null, array('offset' => 0, 'page_size' => 1000));
-                $compare_entry_count = count($compare_entries);
-                
-                // Calculate comparison revenue
-                $compare_total_revenue = 0;
-                $compare_product_fields = array();
-                foreach ($compare_form['fields'] as $field) {
-                    if (isset($field['type']) && $field['type'] === 'product') {
-                        $compare_product_fields[] = $field['id'];
-                    }
-                }
-                
-                if (!empty($compare_product_fields)) {
-                    foreach ($compare_entries as $entry) {
-                        foreach ($compare_product_fields as $pid) {
-                            $val = rgar($entry, $pid);
-                            if (is_numeric($val)) {
-                                $compare_total_revenue += floatval($val);
-                            } elseif (is_array($val) && isset($val['price'])) {
-                                $compare_total_revenue += floatval($val['price']);
-                            } elseif (is_string($val)) {
-                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
-                                    $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                $compare_data = array(
-                    'form_title' => $compare_form['title'],
-                    'entry_count' => $compare_entry_count,
-                    'total_revenue' => $compare_total_revenue
-                );
-            }
-        }
-
-        // Calculate daily entries for chart
-        $daily_entries = self::get_daily_entries($form_id, $start_date, $end_date);
-        $total_days = count($daily_entries);
-        $avg_per_day = $total_days > 0 ? $entry_count / $total_days : 0;
-
         try {
             // Generate PDF using DOMPDF
             require_once GF_QUICKREPORTS_PLUGIN_DIR . 'vendor/autoload.php';
@@ -579,116 +521,256 @@ class GF_QuickReports {
             $dompdf = new \Dompdf\Dompdf();
             $dompdf->setPaper('A4', 'portrait');
             
-            // Create HTML content
-            $html = '<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Quick Reports - ' . esc_html($form['title']) . '</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-        .summary { margin-bottom: 30px; }
-        .summary table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .summary th, .summary td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .summary th { background-color: #f2f2f2; font-weight: bold; }
-        .entries { margin-top: 30px; }
-        .entries table { width: 100%; border-collapse: collapse; font-size: 10px; }
-        .entries th, .entries td { border: 1px solid #ddd; padding: 4px; text-align: left; }
-        .entries th { background-color: #f2f2f2; font-weight: bold; }
-        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Quick Reports for Gravity Forms</h1>
-        <h2>' . esc_html($form['title']) . '</h2>
-        <p>Generated on ' . gmdate('F j, Y \a\t g:i A') . '</p>
-    </div>
-    
-    <div class="summary">
-        <h3>Report Summary</h3>
-        <table>
-            <tr><th>Form</th><td>' . esc_html($form['title']) . '</td></tr>
-            <tr><th>Date Range</th><td>' . esc_html($start_date . ' to ' . $end_date) . '</td></tr>
-            <tr><th>Total Entries</th><td>' . number_format($entry_count) . '</td></tr>
-            <tr><th>Average Per Day</th><td>' . number_format($avg_per_day, 2) . '</td></tr>';
+            // Generate HTML content
+            $html = '<html><head><style>
+                body { font-family: DejaVu Sans, sans-serif; margin: 20px; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { padding: 8px; border: 1px solid #ddd; }
+                th { background-color: #f5f5f5; }
+                h1, h2 { color: #333; }
+                .chart-container { margin: 20px 0; text-align: center; }
+                img { max-width: 100%; height: auto; }
+            </style></head><body>';
             
-            if (!empty($product_fields)) {
-                $html .= '<tr><th>Total Revenue</th><td>$' . number_format($total_revenue, 2) . '</td></tr>';
+            // Add report header
+            $html .= '<h1>Gravity Forms Report</h1>';
+            $html .= '<p>Date Range: ' . gmdate('M j, Y', strtotime($start_date)) . ' - ' . gmdate('M j, Y', strtotime($end_date)) . '</p>';
+            
+            // Add chart image if provided
+            if (!empty($chart_data)) {
+                $html .= '<div class="chart-container">';
+                $html .= '<img src="' . esc_url($chart_data) . '">';
+                $html .= '</div>';
             }
             
-            if ($compare_data) {
-                $html .= '<tr><th>Comparison Form</th><td>' . esc_html($compare_data['form_title']) . '</td></tr>
-                <tr><th>Comparison Entries</th><td>' . number_format($compare_data['entry_count']) . '</td></tr>';
-                if ($compare_data['total_revenue'] > 0) {
-                    $html .= '<tr><th>Comparison Revenue</th><td>$' . number_format($compare_data['total_revenue'], 2) . '</td></tr>';
-                }
-            }
-            
-            $html .= '</table>
-    </div>
-    
-    <div class="entries">
-        <h3>Recent Entries (Last 10)</h3>
-        <table>
-            <tr>
-                <th>ID</th>
-                <th>Date</th>';
-            
-            // Add field headers
-            foreach ($form['fields'] as $field) {
-                if (!isset($field['adminOnly']) || !$field['adminOnly']) {
-                    $html .= '<th>' . esc_html($field['label']) . '</th>';
-                }
-            }
-            
-            $html .= '</tr>';
-            
-            // Add entry data (limit to 10 for PDF)
-            $recent_entries = array_slice($entries, 0, 10);
-            foreach ($recent_entries as $entry) {
-                $html .= '<tr>
-                    <td>' . esc_html($entry['id']) . '</td>
-                    <td>' . esc_html($entry['date_created']) . '</td>';
+            // Add report data
+            if ($form_id === 'all') {
+                // All forms summary table
+                $html .= '<h2>All Forms Summary</h2>';
+                $html .= '<table><tr><th>Form</th><th>Total Entries</th><th>Average Per Day</th><th>Total Revenue</th></tr>';
                 
-                foreach ($form['fields'] as $field) {
-                    if (!isset($field['adminOnly']) || !$field['adminOnly']) {
-                        $value = rgar($entry, $field['id']);
-                        if (is_array($value)) {
-                            $value = implode(', ', $value);
+                $forms = GFAPI::get_forms();
+                $total_entries = 0;
+                $total_revenue = 0;
+                $total_days = 0;
+                
+                foreach ($forms as $form) {
+                    $entry_count = GFAPI::count_entries($form['id'], $search_criteria);
+                    $entries = GFAPI::get_entries($form['id'], $search_criteria);
+                    $daily_entries = self::get_daily_entries($form['id'], $start_date, $end_date);
+                    $days_count = count($daily_entries);
+                    $avg_per_day = $days_count > 0 ? $entry_count / $days_count : 0;
+                    
+                    // Calculate revenue
+                    $form_revenue = 0;
+                    $product_fields = array();
+                    foreach ($form['fields'] as $field) {
+                        if (isset($field['type']) && $field['type'] === 'product') {
+                            $product_fields[] = $field['id'];
                         }
-                        $html .= '<td>' . esc_html($value) . '</td>';
+                    }
+                    
+                    if (!empty($product_fields) && !empty($entries)) {
+                        foreach ($entries as $entry) {
+                            foreach ($product_fields as $pid) {
+                                $val = rgar($entry, $pid);
+                                if (is_numeric($val)) {
+                                    $form_revenue += floatval($val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $form_revenue += floatval($val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $form_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    $html .= sprintf(
+                        '<tr><td>%s</td><td>%d</td><td>%.2f</td><td>%s</td></tr>',
+                        esc_html($form['title']),
+                        $entry_count,
+                        $avg_per_day,
+                        !empty($product_fields) ? '$' . number_format($form_revenue, 2) : 'N/A'
+                    );
+                    
+                    $total_entries += $entry_count;
+                    $total_revenue += $form_revenue;
+                    $total_days = max($total_days, $days_count);
+                }
+                
+                // Add totals row
+                $html .= sprintf(
+                    '<tr style="font-weight: bold;"><td>TOTAL</td><td>%d</td><td>%.2f</td><td>$%s</td></tr>',
+                    $total_entries,
+                    $total_days > 0 ? $total_entries / $total_days : 0,
+                    number_format($total_revenue, 2)
+                );
+                
+                $html .= '</table>';
+                
+                // Add comparison form data if selected
+                if ($compare_form_id) {
+                    $compare_form = GFAPI::get_form($compare_form_id);
+                    $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria);
+                    $compare_entry_count = count($compare_entries);
+                    $compare_daily_entries = self::get_daily_entries($compare_form_id, $start_date, $end_date);
+                    $compare_days_count = count($compare_daily_entries);
+                    $compare_avg_per_day = $compare_days_count > 0 ? $compare_entry_count / $compare_days_count : 0;
+                    
+                    $html .= '<h2>' . esc_html($compare_form['title']) . ' - Summary</h2>';
+                    $html .= '<table>';
+                    $html .= sprintf('<tr><td>Total Entries</td><td>%d</td></tr>', $compare_entry_count);
+                    $html .= sprintf('<tr><td>Average Per Day</td><td>%.2f</td></tr>', 
+                        count($compare_daily_entries) > 0 ? $compare_entry_count / count($compare_daily_entries) : 0
+                    );
+                    
+                    // Calculate comparison form revenue if applicable
+                    $compare_total_revenue = 0;
+                    $compare_product_fields = array();
+                    foreach ($compare_form['fields'] as $field) {
+                        if (isset($field['type']) && $field['type'] === 'product') {
+                            $compare_product_fields[] = $field['id'];
+                        }
+                    }
+                    
+                    if (!empty($compare_product_fields) && !empty($compare_entries)) {
+                        foreach ($compare_entries as $entry) {
+                            foreach ($compare_product_fields as $pid) {
+                                $val = rgar($entry, $pid);
+                                if (is_numeric($val)) {
+                                    $compare_total_revenue += floatval($val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $compare_total_revenue += floatval($val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    }
+                                }
+                            }
+                        }
+                        $html .= sprintf('<tr><td>Total Revenue</td><td>$%s</td></tr>', number_format($compare_total_revenue, 2));
+                    }
+                    
+                    $html .= '</table>';
+                }
+            } else {
+                // Single form details
+                $form = GFAPI::get_form($form_id);
+                $entries = GFAPI::get_entries($form_id, $search_criteria);
+                $entry_count = count($entries);
+                $daily_entries = self::get_daily_entries($form_id, $start_date, $end_date);
+                
+                $html .= '<h2>' . esc_html($form['title']) . ' - Summary</h2>';
+                $html .= '<table>';
+                $html .= sprintf('<tr><td>Total Entries</td><td>%d</td></tr>', $entry_count);
+                $html .= sprintf('<tr><td>Average Per Day</td><td>%.2f</td></tr>', 
+                    count($daily_entries) > 0 ? $entry_count / count($daily_entries) : 0
+                );
+                
+                // Calculate revenue if applicable
+                $total_revenue = 0;
+                $product_fields = array();
+                foreach ($form['fields'] as $field) {
+                    if (isset($field['type']) && $field['type'] === 'product') {
+                        $product_fields[] = $field['id'];
                     }
                 }
                 
-                $html .= '</tr>';
+                if (!empty($product_fields) && !empty($entries)) {
+                    foreach ($entries as $entry) {
+                        foreach ($product_fields as $pid) {
+                            $val = rgar($entry, $pid);
+                            if (is_numeric($val)) {
+                                $total_revenue += floatval($val);
+                            } elseif (is_array($val) && isset($val['price'])) {
+                                $total_revenue += floatval($val['price']);
+                            } elseif (is_string($val)) {
+                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                    $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                }
+                            }
+                        }
+                    }
+                    $html .= sprintf('<tr><td>Total Revenue</td><td>$%s</td></tr>', number_format($total_revenue, 2));
+                }
+                
+                $html .= '</table>';
+                
+                // Add comparison form data if selected
+                if ($compare_form_id) {
+                    $compare_form = GFAPI::get_form($compare_form_id);
+                    $compare_entries = GFAPI::get_entries($compare_form_id, $search_criteria);
+                    $compare_entry_count = count($compare_entries);
+                    $compare_daily_entries = self::get_daily_entries($compare_form_id, $start_date, $end_date);
+                    $compare_days_count = count($compare_daily_entries);
+                    $compare_avg_per_day = $compare_days_count > 0 ? $compare_entry_count / $compare_days_count : 0;
+                    
+                    $html .= '<h2>' . esc_html($compare_form['title']) . ' - Summary</h2>';
+                    $html .= '<table>';
+                    $html .= sprintf('<tr><td>Total Entries</td><td>%d</td></tr>', $compare_entry_count);
+                    $html .= sprintf('<tr><td>Average Per Day</td><td>%.2f</td></tr>', 
+                        count($compare_daily_entries) > 0 ? $compare_entry_count / count($compare_daily_entries) : 0
+                    );
+                    
+                    // Calculate comparison form revenue if applicable
+                    $compare_total_revenue = 0;
+                    $compare_product_fields = array();
+                    foreach ($compare_form['fields'] as $field) {
+                        if (isset($field['type']) && $field['type'] === 'product') {
+                            $compare_product_fields[] = $field['id'];
+                        }
+                    }
+                    
+                    if (!empty($compare_product_fields) && !empty($compare_entries)) {
+                        foreach ($compare_entries as $entry) {
+                            foreach ($compare_product_fields as $pid) {
+                                $val = rgar($entry, $pid);
+                                if (is_numeric($val)) {
+                                    $compare_total_revenue += floatval($val);
+                                } elseif (is_array($val) && isset($val['price'])) {
+                                    $compare_total_revenue += floatval($val['price']);
+                                } elseif (is_string($val)) {
+                                    if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                        $compare_total_revenue += floatval(str_replace(',', '', $matches[1]));
+                                    }
+                                }
+                            }
+                        }
+                        $html .= sprintf('<tr><td>Total Revenue</td><td>$%s</td></tr>', number_format($compare_total_revenue, 2));
+                    }
+                    
+                    $html .= '</table>';
+                }
             }
             
-            $html .= '</table>
-    </div>
-    
-    <div class="footer">
-        <p>Generated by Quick Reports for Gravity Forms v' . GF_QUICKREPORTS_VERSION . '</p>
-    </div>
-</body>
-</html>';
+            $html .= '</body></html>';
             
             $dompdf->loadHtml($html);
             $dompdf->render();
             
-            $filename = 'gf-quickreports-' . sanitize_title($form['title']) . '-' . gmdate('Y-m-d') . '.pdf';
+            // Get the PDF content
+            $pdf_content = $dompdf->output();
+            $content_length = strlen($pdf_content);
             
+            // Clear any previous output and disable compression
+            if (ob_get_length()) ob_clean();
+            if (ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
+            
+            // Set headers for PDF download
             header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . gmdate('Y-m-d') . '.pdf"');
+            header('Content-Length: ' . $content_length);
+            header('Cache-Control: private, no-store, no-cache, must-revalidate');
             header('Pragma: no-cache');
-            header('Expires: 0');
             
-            echo $dompdf->output();
+            // Output PDF content
+            echo $pdf_content;
             exit;
             
         } catch (Exception $e) {
-            wp_die('PDF generation failed: ' . $e->getMessage());
+            wp_die('Error generating PDF: ' . esc_html($e->getMessage()));
         }
     }
 
