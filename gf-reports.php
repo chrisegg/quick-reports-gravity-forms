@@ -78,9 +78,9 @@ class GF_QuickReports {
      */
     public function add_menu_page() {
         add_submenu_page(
-            'gform_forms',
-            __('Quick Reports', 'gf-quickreports'),
-            __('Quick Reports', 'gf-quickreports'),
+            'gf_edit_forms',
+            esc_html__('Quick Reports', 'gf-quickreports'),
+            esc_html__('Quick Reports', 'gf-quickreports'),
             'manage_options',
             'gf_quickreports',
             array($this, 'render_reports_page')
@@ -140,13 +140,13 @@ class GF_QuickReports {
         // Get forms
         $forms = GFAPI::get_forms();
 
-        // Get selected form
-        $form_id = isset($_GET['form_id']) ? absint($_GET['form_id']) : 0;
-        $compare_form_id = isset($_GET['compare_form_id']) ? absint($_GET['compare_form_id']) : 0;
-        $start_date = isset($_GET['start_date']) ? sanitize_text_field($_GET['start_date']) : '';
-        $end_date = isset($_GET['end_date']) ? sanitize_text_field($_GET['end_date']) : '';
-        $chart_mode = isset($_GET['chart_mode']) ? sanitize_text_field($_GET['chart_mode']) : 'per_day';
-        $chart_view = isset($_GET['chart_view']) ? sanitize_text_field($_GET['chart_view']) : 'combined';
+        // Get selected form with proper sanitization
+        $form_id = isset($_GET['form_id']) ? absint(wp_unslash($_GET['form_id'])) : 0;
+        $compare_form_id = isset($_GET['compare_form_id']) ? absint(wp_unslash($_GET['compare_form_id'])) : 0;
+        $start_date = isset($_GET['start_date']) ? sanitize_text_field(wp_unslash($_GET['start_date'])) : '';
+        $end_date = isset($_GET['end_date']) ? sanitize_text_field(wp_unslash($_GET['end_date'])) : '';
+        $chart_mode = isset($_GET['chart_mode']) ? sanitize_text_field(wp_unslash($_GET['chart_mode'])) : 'per_day';
+        $chart_view = isset($_GET['chart_view']) ? sanitize_text_field(wp_unslash($_GET['chart_view'])) : 'combined';
 
         // Get chart data
         $chart_data = $this->get_chart_data($form_id, $start_date, $end_date, $chart_mode);
@@ -161,8 +161,8 @@ class GF_QuickReports {
                     $individual_forms_data[] = array(
                         'label' => $form['title'],
                         'data' => $form_data['data'],
-                        'borderColor' => sprintf('#%06X', mt_rand(0, 0xFFFFFF)),
-                        'backgroundColor' => 'rgba(' . mt_rand(0, 255) . ',' . mt_rand(0, 255) . ',' . mt_rand(0, 255) . ',0.1)',
+                        'borderColor' => sprintf('#%06X', wp_rand(0, 0xFFFFFF)),
+                        'backgroundColor' => 'rgba(' . wp_rand(0, 255) . ',' . wp_rand(0, 255) . ',' . wp_rand(0, 255) . ',0.1)',
                         'borderWidth' => 2,
                         'fill' => true,
                         'tension' => 0.4
@@ -226,7 +226,7 @@ class GF_QuickReports {
 
         if (!empty($results)) {
             foreach ($results as $row) {
-                $labels[] = date('Y-m-d', strtotime($row->date));
+                $labels[] = gmdate('Y-m-d', strtotime($row->date));
                 $data[] = (int)$row->count;
             }
         }
@@ -278,9 +278,9 @@ class GF_QuickReports {
             );
             
             $count = GFAPI::count_entries($form_id, $search_criteria);
-            $daily_entries[date('M j', strtotime($current_date))] = $count;
+            $daily_entries[gmdate('M j', strtotime($current_date))] = $count;
             
-            $current_date = date('Y-m-d', strtotime($current_date . ' +1 day'));
+            $current_date = gmdate('Y-m-d', strtotime($current_date . ' +1 day'));
         }
         
         return $daily_entries;
@@ -304,10 +304,10 @@ class GF_QuickReports {
                 wp_die('Unauthorized');
             }
             
-            $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
-            $start_date = sanitize_text_field($_POST['start_date']);
-            $end_date = sanitize_text_field($_POST['end_date']);
-            $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field($_POST['compare_form_id']) : '';
+            $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
+            $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+            $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+            $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
             
             error_log('GF QuickReports: Form ID: ' . $form_id);
             error_log('GF QuickReports: Compare Form ID: ' . $compare_form_id);
@@ -328,7 +328,7 @@ class GF_QuickReports {
             
             // Set headers for CSV download
             header('Content-Type: text/csv; charset=utf-8');
-            header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . date('Y-m-d') . '.csv"');
+            header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . gmdate('Y-m-d') . '.csv"');
             
             $output = fopen('php://output', 'w');
             fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // Add UTF-8 BOM
@@ -499,7 +499,8 @@ class GF_QuickReports {
             exit;
             
         } catch (Exception $e) {
-            wp_die('Error generating CSV: ' . $e->getMessage());
+            error_log('GF QuickReports: CSV export error: ' . $e->getMessage());
+            wp_die('Error generating CSV: ' . esc_html($e->getMessage()));
         }
     }
 
@@ -537,11 +538,11 @@ class GF_QuickReports {
                 }
             }
             
-            $form_id = isset($_POST['form_id']) ? sanitize_text_field($_POST['form_id']) : '';
-            $start_date = sanitize_text_field($_POST['start_date']);
-            $end_date = sanitize_text_field($_POST['end_date']);
-            $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field($_POST['compare_form_id']) : '';
-            $chart_data = isset($_POST['chart_data']) ? $_POST['chart_data'] : '';
+            $form_id = isset($_POST['form_id']) ? sanitize_text_field(wp_unslash($_POST['form_id'])) : '';
+            $start_date = isset($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+            $end_date = isset($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+            $compare_form_id = isset($_POST['compare_form_id']) ? sanitize_text_field(wp_unslash($_POST['compare_form_id'])) : '';
+            $chart_data = isset($_POST['chart_data']) ? sanitize_text_field(wp_unslash($_POST['chart_data'])) : '';
             
             error_log('GF QuickReports: Form ID: ' . $form_id);
             error_log('GF QuickReports: Compare Form ID: ' . $compare_form_id);
@@ -561,12 +562,12 @@ class GF_QuickReports {
             
             // Add report header
             $html .= '<h1>Gravity Forms Report</h1>';
-            $html .= '<p>Date Range: ' . date('M j, Y', strtotime($start_date)) . ' - ' . date('M j, Y', strtotime($end_date)) . '</p>';
+            $html .= '<p>Date Range: ' . gmdate('M j, Y', strtotime($start_date)) . ' - ' . gmdate('M j, Y', strtotime($end_date)) . '</p>';
             
             // Add chart image if provided
             if (!empty($chart_data)) {
                 $html .= '<div class="chart-container">';
-                $html .= '<img src="' . $chart_data . '">';
+                $html .= '<img src="' . esc_url($chart_data) . '">';
                 $html .= '</div>';
             }
             
@@ -818,7 +819,7 @@ class GF_QuickReports {
             
             // Set headers for PDF download
             header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . date('Y-m-d') . '.pdf"');
+            header('Content-Disposition: attachment; filename="gf-quickreports-' . $form_id . '-' . gmdate('Y-m-d') . '.pdf"');
             header('Content-Length: ' . $content_length);
             header('Cache-Control: private, no-store, no-cache, must-revalidate');
             header('Pragma: no-cache');
@@ -828,7 +829,7 @@ class GF_QuickReports {
             exit;
             
         } catch (Exception $e) {
-            wp_die('Error generating PDF: ' . $e->getMessage());
+            wp_die('Error generating PDF: ' . esc_html($e->getMessage()));
         }
     }
 
@@ -849,7 +850,7 @@ class GF_QuickReports {
                 wp_die('Unauthorized');
             }
             
-            $selected_form = isset($_POST['selected_form']) ? sanitize_text_field($_POST['selected_form']) : '';
+            $selected_form = isset($_POST['selected_form']) ? sanitize_text_field(wp_unslash($_POST['selected_form'])) : '';
             error_log('GF QuickReports: Selected form: ' . $selected_form);
             
             if (!$selected_form || $selected_form === 'all') {
@@ -892,41 +893,41 @@ class GF_QuickReports {
                 wp_die('Unauthorized');
             }
             
-            $preset = isset($_POST['preset']) ? sanitize_text_field($_POST['preset']) : '';
+            $preset = isset($_POST['preset']) ? sanitize_text_field(wp_unslash($_POST['preset'])) : '';
             $dates = array();
             
             switch($preset) {
                 case 'today':
-                    $dates['start_date'] = date('Y-m-d');
-                    $dates['end_date'] = date('Y-m-d');
+                    $dates['start_date'] = gmdate('Y-m-d');
+                    $dates['end_date'] = gmdate('Y-m-d');
                     break;
                 case 'yesterday':
-                    $dates['start_date'] = date('Y-m-d', strtotime('-1 day'));
-                    $dates['end_date'] = date('Y-m-d', strtotime('-1 day'));
+                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-1 day'));
+                    $dates['end_date'] = gmdate('Y-m-d', strtotime('-1 day'));
                     break;
                 case '7days':
-                    $dates['start_date'] = date('Y-m-d', strtotime('-7 days'));
-                    $dates['end_date'] = date('Y-m-d');
+                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-7 days'));
+                    $dates['end_date'] = gmdate('Y-m-d');
                     break;
                 case '30days':
-                    $dates['start_date'] = date('Y-m-d', strtotime('-30 days'));
-                    $dates['end_date'] = date('Y-m-d');
+                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-30 days'));
+                    $dates['end_date'] = gmdate('Y-m-d');
                     break;
                 case '60days':
-                    $dates['start_date'] = date('Y-m-d', strtotime('-60 days'));
-                    $dates['end_date'] = date('Y-m-d');
+                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-60 days'));
+                    $dates['end_date'] = gmdate('Y-m-d');
                     break;
                 case '90days':
-                    $dates['start_date'] = date('Y-m-d', strtotime('-90 days'));
-                    $dates['end_date'] = date('Y-m-d');
+                    $dates['start_date'] = gmdate('Y-m-d', strtotime('-90 days'));
+                    $dates['end_date'] = gmdate('Y-m-d');
                     break;
                 case 'year_to_date':
-                    $dates['start_date'] = date('Y-01-01');
-                    $dates['end_date'] = date('Y-m-d');
+                    $dates['start_date'] = gmdate('Y-01-01');
+                    $dates['end_date'] = gmdate('Y-m-d');
                     break;
                 case 'last_year':
-                    $dates['start_date'] = date('Y-01-01', strtotime('-1 year'));
-                    $dates['end_date'] = date('Y-12-31', strtotime('-1 year'));
+                    $dates['start_date'] = gmdate('Y-01-01', strtotime('-1 year'));
+                    $dates['end_date'] = gmdate('Y-12-31', strtotime('-1 year'));
                     break;
                 case 'custom':
                 default:
