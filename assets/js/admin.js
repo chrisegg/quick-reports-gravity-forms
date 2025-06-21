@@ -131,20 +131,9 @@ jQuery(document).ready(function($) {
         
         try {
             var ctx = canvas.getContext('2d');
-            var datasets = [];
-            var labels = [];
-            var hasData = false;
-            var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
             var chartData = window.chartData;
             var compareChartData = window.compareChartData;
             var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
-            
-            console.log('--- Entries Chart Debug ---');
-            console.log('Mode:', mode);
-            console.log('Chart View:', chartView);
-            console.log('Condition (mode === "total" && chartView === "individual"):', (mode === 'total' && chartView === 'individual'));
-            console.log('Individual Forms Data:', JSON.stringify(window.individualFormsData, null, 2));
-
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                 formatFormLabel(window.selectedFormLabel) : 
                 formatFormLabel($('#form_id option:selected').text() || 'Form 1');
@@ -152,6 +141,8 @@ jQuery(document).ready(function($) {
             var datasets = [];
             var labels = [];
             var hasData = false;
+            var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
+            
 
             if (mode === 'total' && chartView === 'individual' && window.individualFormsData.length > 0) {
                 // Bar chart showing total entries for each individual form
@@ -305,33 +296,22 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        console.log('Initializing revenue chart with data:', window.revenueChartData);
         
         try {
             var ctx = canvas.getContext('2d');
-            var datasets = [];
-            var hasData = false;
-            var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
             var chartData = window.revenueChartData;
             var compareChartData = window.compareRevenueChartData;
             var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
-
-            console.log('--- Revenue Chart Debug ---');
-            console.log('Mode:', mode);
-            console.log('Chart View:', chartView);
-            console.log('Condition (mode === "total" && chartView === "individual"):', (mode === 'total' && chartView === "individual"));
-            console.log('Individual Revenue Data:', JSON.stringify(window.individualRevenueData, null, 2));
-
-            console.log('Revenue chart data values:', chartData ? chartData.data : 'no data');
-            console.log('Revenue chart data type check:', chartData ? chartData.data.some(function(v){return parseFloat(v) > 0;}) : 'no data');
-
-            // Refactored logic to handle different chart views
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? formatFormLabel(window.selectedFormLabel) : 'Revenue';
             var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Compare Revenue');
             var datasets = [];
             var labels = [];
             var hasData = false;
+            var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
 
+
+
+            // Refactored logic to handle different chart views
             if (mode === 'total' && chartView === 'individual' && window.individualRevenueData.length > 0) {
                 // Bar chart showing total revenue for each individual form
                 labels = window.individualRevenueData.map(d => d.label);
