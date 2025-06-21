@@ -48,6 +48,11 @@ You can compare any two individual forms. The "All Forms" view provides a combin
 2.  A single form report showing entries and revenue over time.
 3.  The comparison tool in action.
 
+| All Forms | Individual Form | Form Comparison |
+|---|---|---|
+| ![quickreports-allforms](https://github.com/user-attachments/assets/f4ff1040-accf-4ffa-9e2d-811a7d369f3d) | ![quickreports-singleform](https://github.com/user-attachments/assets/a142c961-3e51-4162-bc8e-1f14647a6dff) | ![quickreports-comparison](https://github.com/user-attachments/assets/192c1153-8759-4b98-822c-910b090b7909) |
+
+
 ## Changelog
 
 ### 1.0.0
