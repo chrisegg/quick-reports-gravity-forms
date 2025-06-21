@@ -122,15 +122,13 @@ if ($date_preset && $date_preset !== 'custom') {
                     <option value="last_year" <?php selected($date_preset, 'last_year'); ?>><?php esc_html_e('Last Year', 'gf-quickreports'); ?></option>
                 </select>
             </div>
-            <?php if ($selected_form === 'all'): ?>
-            <div class="alignleft actions">
+            <div class="alignleft actions" id="chart-view-container" style="display: none;">
                 <label for="chart_view" class="screen-reader-text"><?php esc_html_e('Chart View', 'gf-quickreports'); ?></label>
                 <select name="chart_view" id="chart_view">
                     <option value="individual" <?php selected(isset($_GET['chart_view']) ? sanitize_text_field(wp_unslash($_GET['chart_view'])) : 'individual', 'individual'); ?>><?php esc_html_e('Individual Forms', 'gf-quickreports'); ?></option>
                     <option value="aggregated" <?php selected(isset($_GET['chart_view']) ? sanitize_text_field(wp_unslash($_GET['chart_view'])) : '', 'aggregated'); ?>><?php esc_html_e('Aggregated Total', 'gf-quickreports'); ?></option>
                 </select>
             </div>
-            <?php endif; ?>
             <div class="alignleft actions date-range-container">
                 <label for="start_date" class="screen-reader-text"><?php esc_html_e('Start Date', 'gf-quickreports'); ?></label>
                 <input type="date" name="start" id="start_date" value="<?php echo esc_attr($start_date); ?>">

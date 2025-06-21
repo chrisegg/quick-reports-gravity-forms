@@ -778,7 +778,7 @@ jQuery(document).ready(function($) {
      * Shows/hides the chart view dropdown based on form selection
      */
     function updateChartViewVisibility(selectedForm) {
-        var $chartViewContainer = $('#chart_view').closest('.alignleft.actions');
+        var $chartViewContainer = $('#chart-view-container');
         if (selectedForm === 'all') {
             $chartViewContainer.show();
         } else {
