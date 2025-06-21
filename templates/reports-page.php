@@ -409,6 +409,5 @@ if ($date_preset && $date_preset !== 'custom') {
     
     wp_add_inline_script('gf-quickreports-admin', $chart_script, 'before');
     ?>
-    </div> <!-- .report-container -->
 <?php endif; ?>
 </div> <!-- .wrap --> 
