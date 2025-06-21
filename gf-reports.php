@@ -359,9 +359,21 @@ class GF_QuickReports {
         }
 
         $instance = self::get_instance();
-        $form_ids = ($form_id === 'all') ? GFAPI::get_forms(true, false, 'id') : array($form_id);
-        $form_ids = wp_list_pluck($form_ids, 'id');
-
+        
+        $form_ids = [];
+        if ($form_id === 'all') {
+            // Get all form IDs that have product fields to avoid unnecessary processing
+            $all_forms = GFAPI::get_forms();
+            foreach ($all_forms as $form) {
+                $product_fields = GFCommon::get_fields_by_type($form, ['product']);
+                if (!empty($product_fields)) {
+                    $form_ids[] = $form['id'];
+                }
+            }
+        } elseif (is_numeric($form_id) && $form_id > 0) {
+            // Use the single form ID provided
+            $form_ids = [$form_id];
+        }
 
         // Initialize date range array to ensure all days are present
         $current_ts = strtotime($start_date);
@@ -375,14 +387,14 @@ class GF_QuickReports {
             return $daily_revenue;
         }
 
-        $search_criteria = array(
+        $search_criteria = [
             'status' => 'active',
             'start_date' => $start_date . ' 00:00:00',
             'end_date' => $end_date . ' 23:59:59',
-        );
+        ];
 
         // Fetch all entries in the date range at once for efficiency
-        $entries = GFAPI::get_entries($form_ids, $search_criteria, null, array('page_size' => 2000));
+        $entries = GFAPI::get_entries($form_ids, $search_criteria, null, ['page_size' => 2000]);
 
         // Process entries and group revenue by day
         foreach ($entries as $entry) {

@@ -477,9 +477,9 @@ if ($date_preset && $date_preset !== 'custom') {
     
     wp_add_inline_script('gf-quickreports-admin', $chart_script, 'before');
     ?>
-    </div>
+    </div> <!-- .report-container -->
 <?php endif; ?>
-</div>
+</div> <!-- .wrap -->
 <div style="margin-top: 20px;">
     <p class="description">
         <?php esc_html_e('Need more detailed reports or different chart types? Check out the premium version for more features!', 'gf-quickreports'); ?>
