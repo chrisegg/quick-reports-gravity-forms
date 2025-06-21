@@ -155,7 +155,6 @@ if ($date_preset && $date_preset !== 'custom') {
     ?>
     <?php if ($selected_form): ?>
         <hr>
-        <div class="report-container">
         <!-- Report Results -->
         <div class="gf-quickreports-results">
             <?php
@@ -340,7 +339,6 @@ if ($date_preset && $date_preset !== 'custom') {
                 <div id="revenue-chartjs-no-data" style="display:none; color:#888; text-align:center; margin-top:20px;"><?php esc_html_e('No revenue data for this period.', 'gf-quickreports'); ?></div>
             </div>
         </div>
-    </div>
     <?php
     // Prepare data for charts
 
