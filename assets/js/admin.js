@@ -132,68 +132,61 @@ jQuery(document).ready(function($) {
         try {
             var ctx = canvas.getContext('2d');
             var datasets = [];
+            var labels = [];
             var hasData = false;
             var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
             var chartData = window.chartData;
             var compareChartData = window.compareChartData;
+            var chartView = typeof window.chartView !== 'undefined' ? window.chartView : 'total';
+            var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? 
+                formatFormLabel(window.selectedFormLabel) : 
+                formatFormLabel($('#form_id option:selected').text() || 'Form 1');
+            var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Form 2');
 
-            // Main form dataset
-            if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return v>0;})) {
-                hasData = true;
-                var formLabel = typeof window.selectedFormLabel !== 'undefined' ? 
-                    formatFormLabel(window.selectedFormLabel) : 
-                    formatFormLabel($('#form_id option:selected').text() || 'Form 1');
-                
+            if (mode === 'total' && chartView === 'individual') {
+                // Bar chart showing total entries for each individual form
+                labels = window.individualFormsData.map(d => d.label);
+                const dataValues = window.individualFormsData.map(d => d.data.reduce((a, b) => a + b, 0));
                 datasets.push({
-                    label: formLabel,
-                    data: mode === 'total' ? [chartData.data.reduce((a,b)=>a+b,0)] : chartData.data,
+                    label: 'Total Entries',
+                    data: dataValues,
+                    backgroundColor: window.individualFormsData.map(d => d.backgroundColor),
+                    borderColor: window.individualFormsData.map(d => d.borderColor),
+                    borderWidth: 1
+                });
+                hasData = dataValues.some(v => v > 0);
+            } else if (chartView === 'individual') {
+                // Line chart showing individual forms over time
+                labels = chartData.labels || [];
+                datasets = window.individualFormsData;
+                hasData = datasets.some(d => d.data.some(v => v > 0));
+            } else {
+                // Default aggregated view (line or bar)
+                labels = (mode === 'total') ? [mainLabel] : (chartData.labels || []);
+                const mainDataset = {
+                    label: mainLabel,
+                    data: (mode === 'total') ? [chartData.data.reduce((a, b) => a + b, 0)] : chartData.data,
                     borderColor: '#2271b1',
                     backgroundColor: 'rgba(34, 113, 177, 0.1)',
                     borderWidth: 2,
                     fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#2271b1',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                });
+                    tension: 0.4
+                };
+                datasets.push(mainDataset);
+                hasData = mainDataset.data.some(v => v > 0);
             }
             
-            // Individual forms datasets (for "All Forms" view)
-            if (typeof window.individualFormsData !== 'undefined' && window.individualFormsData.length > 0 && 
-                typeof window.chartView !== 'undefined' && window.chartView === 'individual') {
+            // Add comparison data if available and not in individual view
+            if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && chartView !== 'individual') {
                 hasData = true;
-                
-                // Add each individual form as a separate dataset
-                window.individualFormsData.forEach(function(formDataset) {
-                    datasets.push(formDataset);
-                });
-                
-                // Remove the aggregated "All Forms" dataset since we're showing individual forms
-                datasets = datasets.filter(function(dataset) {
-                    return dataset.label !== 'All Forms';
-                });
-            }
-            
-            // Compare form dataset
-            if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return v>0;})) {
-                hasData = true;
-                var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Form 2');
-                
                 datasets.push({
                     label: compareLabel,
-                    data: mode === 'total' ? [compareChartData.data.reduce((a,b)=>a+b,0)] : compareChartData.data,
-                    borderColor: '#34c759',
-                    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+                    data: (mode === 'total') ? [compareChartData.data.reduce((a, b) => a + b, 0)] : compareChartData.data,
+                    borderColor: '#d63638',
+                    backgroundColor: 'rgba(214, 54, 56, 0.1)',
                     borderWidth: 2,
                     fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#34c759',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    tension: 0.4
                 });
             }
             
@@ -222,7 +215,11 @@ jQuery(document).ready(function($) {
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: true
+                            position: 'top',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 20
+                            }
                         },
                         tooltip: {
                             backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -312,66 +309,65 @@ jQuery(document).ready(function($) {
             console.log('Revenue chart data values:', chartData ? chartData.data : 'no data');
             console.log('Revenue chart data type check:', chartData ? chartData.data.some(function(v){return parseFloat(v) > 0;}) : 'no data');
 
-            // Main form dataset
-            if (chartData && chartData.data && chartData.data.length > 0 && chartData.data.some(function(v){return parseFloat(v) > 0;})) {
-                hasData = true;
-                var formLabel = typeof window.selectedFormLabel !== 'undefined' ? 
-                    formatFormLabel(window.selectedFormLabel) : 
-                    formatFormLabel($('#form_id option:selected').text() || 'Form 1');
-                
+            // Refactored logic to handle different chart views
+            var chartView = typeof window.chartView !== 'undefined' ? window.chartView : 'aggregated';
+            var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? formatFormLabel(window.selectedFormLabel) : 'Revenue';
+            var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Compare Revenue');
+            var datasets = [];
+            var labels = [];
+            var hasData = false;
+
+            if (mode === 'total' && chartView === 'individual') {
+                // Bar chart showing total revenue for each individual form
+                labels = window.individualRevenueData.map(d => d.label);
+                const dataValues = window.individualRevenueData.map(d => d.data.reduce((a, b) => a + b, 0));
                 datasets.push({
-                    label: formLabel + ' (Revenue)',
-                    data: mode === 'total' ? [chartData.data.reduce((a,b)=>a+b,0)] : chartData.data,
-                    borderColor: '#ff9500',
-                    backgroundColor: 'rgba(255, 149, 0, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#ff9500',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+                    label: 'Total Revenue',
+                    data: dataValues,
+                    backgroundColor: window.individualRevenueData.map(d => d.backgroundColor),
+                    borderColor: window.individualRevenueData.map(d => d.borderColor),
+                    borderWidth: 1
                 });
+                hasData = dataValues.some(v => v > 0);
+            } else if (chartView === 'individual') {
+                // Line chart showing individual forms' revenue over time
+                labels = chartData.labels || [];
+                datasets = window.individualRevenueData;
+                hasData = datasets.some(d => d.data.some(v => v > 0));
+            } else {
+                // Default aggregated view (line or bar)
+                if (chartData && chartData.data && chartData.data.some(v => v > 0)) {
+                    labels = (mode === 'total') ? [mainLabel] : (chartData.labels || []);
+                    const mainDataset = {
+                        label: mainLabel + ' (Revenue)',
+                        data: (mode === 'total') ? [chartData.data.reduce((a, b) => a + b, 0)] : chartData.data,
+                        borderColor: '#ff9500',
+                        backgroundColor: 'rgba(255, 149, 0, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    };
+                    datasets.push(mainDataset);
+                    hasData = mainDataset.data.some(v => v > 0);
+                }
             }
-            
-            // Individual forms datasets (for "All Forms" view)
-            if (typeof window.individualRevenueData !== 'undefined' && window.individualRevenueData.length > 0 && 
-                typeof window.chartView !== 'undefined' && window.chartView === 'individual') {
-                hasData = true;
-                
-                // Add each individual form as a separate dataset
-                window.individualRevenueData.forEach(function(formDataset) {
-                    datasets.push(formDataset);
-                });
-                
-                // Remove the aggregated "All Forms" dataset since we're showing individual forms
-                datasets = datasets.filter(function(dataset) {
-                    return dataset.label !== 'All Forms (Revenue)';
-                });
+
+            // Add comparison data if available and not in individual view
+            if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && chartView !== 'individual') {
+                if (compareChartData.data.some(v => v > 0)) {
+                    hasData = true;
+                    datasets.push({
+                        label: compareLabel + ' (Revenue)',
+                        data: (mode === 'total') ? [compareChartData.data.reduce((a, b) => a + b, 0)] : compareChartData.data,
+                        borderColor: '#ff3b30',
+                        backgroundColor: 'rgba(255, 59, 48, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    });
+                }
             }
-            
-            // Compare form dataset
-            if (compareChartData && compareChartData.data && compareChartData.data.length > 0 && compareChartData.data.some(function(v){return parseFloat(v) > 0;})) {
-                hasData = true;
-                var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Form 2');
-                
-                datasets.push({
-                    label: compareLabel + ' (Revenue)',
-                    data: mode === 'total' ? [compareChartData.data.reduce((a,b)=>a+b,0)] : compareChartData.data,
-                    borderColor: '#ff3b30',
-                    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#ff3b30',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                });
-            }
-            
+
             // No data
             if (!hasData) {
                 $('#revenueChart').hide();
