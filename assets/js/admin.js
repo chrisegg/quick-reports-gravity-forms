@@ -149,20 +149,22 @@ jQuery(document).ready(function($) {
                 formatFormLabel(window.selectedFormLabel) : 
                 formatFormLabel($('#form_id option:selected').text() || 'Form 1');
             var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Form 2');
+            var datasets = [];
+            var labels = [];
+            var hasData = false;
 
-            if (mode === 'total' && chartView === 'individual') {
+            if (mode === 'total' && chartView === 'individual' && window.individualFormsData.length > 0) {
                 // Bar chart showing total entries for each individual form
                 labels = window.individualFormsData.map(d => d.label);
-                const dataValues = window.individualFormsData.map(d => d.data.reduce((a, b) => a + b, 0));
-                datasets.push({
-                    label: 'Total Entries',
-                    data: dataValues,
-                    backgroundColor: window.individualFormsData.map(d => d.backgroundColor),
-                    borderColor: window.individualFormsData.map(d => d.borderColor),
+                datasets = window.individualFormsData.map(d => ({
+                    label: d.label,
+                    data: [d.data.reduce((a, b) => a + b, 0)],
+                    backgroundColor: d.backgroundColor,
+                    borderColor: d.borderColor,
                     borderWidth: 1
-                });
-                hasData = dataValues.some(v => v > 0);
-            } else if (chartView === 'individual') {
+                }));
+                hasData = datasets.some(d => d.data[0] > 0);
+            } else if (chartView === 'individual' && window.individualFormsData.length > 0) {
                 // Line chart showing individual forms over time
                 labels = chartData.labels || [];
                 datasets = window.individualFormsData;
@@ -330,19 +332,18 @@ jQuery(document).ready(function($) {
             var labels = [];
             var hasData = false;
 
-            if (mode === 'total' && chartView === 'individual') {
+            if (mode === 'total' && chartView === 'individual' && window.individualRevenueData.length > 0) {
                 // Bar chart showing total revenue for each individual form
                 labels = window.individualRevenueData.map(d => d.label);
-                const dataValues = window.individualRevenueData.map(d => d.data.reduce((a, b) => a + b, 0));
-                datasets.push({
-                    label: 'Total Revenue',
-                    data: dataValues,
-                    backgroundColor: window.individualRevenueData.map(d => d.backgroundColor),
-                    borderColor: window.individualRevenueData.map(d => d.borderColor),
+                datasets = window.individualRevenueData.map(d => ({
+                    label: d.label,
+                    data: [d.data.reduce((a, b) => a + b, 0)],
+                    backgroundColor: d.backgroundColor,
+                    borderColor: d.borderColor,
                     borderWidth: 1
-                });
-                hasData = dataValues.some(v => v > 0);
-            } else if (chartView === 'individual') {
+                }));
+                hasData = datasets.some(d => d.data[0] > 0);
+            } else if (chartView === 'individual' && window.individualRevenueData.length > 0) {
                 // Line chart showing individual forms' revenue over time
                 labels = chartData.labels || [];
                 datasets = window.individualRevenueData;
