@@ -137,7 +137,7 @@ jQuery(document).ready(function($) {
             var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
             var chartData = window.chartData;
             var compareChartData = window.compareChartData;
-            var chartView = typeof window.chartView !== 'undefined' ? window.chartView : 'total';
+            var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                 formatFormLabel(window.selectedFormLabel) : 
                 formatFormLabel($('#form_id option:selected').text() || 'Form 1');
@@ -305,12 +305,12 @@ jQuery(document).ready(function($) {
             var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
             var chartData = window.revenueChartData;
             var compareChartData = window.compareRevenueChartData;
+            var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
 
             console.log('Revenue chart data values:', chartData ? chartData.data : 'no data');
             console.log('Revenue chart data type check:', chartData ? chartData.data.some(function(v){return parseFloat(v) > 0;}) : 'no data');
 
             // Refactored logic to handle different chart views
-            var chartView = typeof window.chartView !== 'undefined' ? window.chartView : 'aggregated';
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? formatFormLabel(window.selectedFormLabel) : 'Revenue';
             var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Compare Revenue');
             var datasets = [];
