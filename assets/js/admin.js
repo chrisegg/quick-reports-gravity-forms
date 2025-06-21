@@ -138,6 +138,12 @@ jQuery(document).ready(function($) {
             var chartData = window.chartData;
             var compareChartData = window.compareChartData;
             var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
+            
+            console.log('--- Entries Chart Debug ---');
+            console.log('Mode:', mode);
+            console.log('Chart View:', chartView);
+            console.log('Condition (mode === "total" && chartView === "individual"):', (mode === 'total' && chartView === 'individual'));
+
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                 formatFormLabel(window.selectedFormLabel) : 
                 formatFormLabel($('#form_id option:selected').text() || 'Form 1');
@@ -306,6 +312,11 @@ jQuery(document).ready(function($) {
             var chartData = window.revenueChartData;
             var compareChartData = window.compareRevenueChartData;
             var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
+
+            console.log('--- Revenue Chart Debug ---');
+            console.log('Mode:', mode);
+            console.log('Chart View:', chartView);
+            console.log('Condition (mode === "total" && chartView === "individual"):', (mode === 'total' && chartView === "individual"));
 
             console.log('Revenue chart data values:', chartData ? chartData.data : 'no data');
             console.log('Revenue chart data type check:', chartData ? chartData.data.some(function(v){return parseFloat(v) > 0;}) : 'no data');
