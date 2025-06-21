@@ -359,6 +359,7 @@ if ($date_preset && $date_preset !== 'custom') {
     $individual_forms_data = [];
     $individual_revenue_data = [];
     if ($selected_form === 'all') {
+        $chart_view = isset($_GET['chart_view']) ? sanitize_text_field(wp_unslash($_GET['chart_view'])) : 'individual';
         $colors = ['#2271b1', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5856d6', '#007aff', '#5ac8fa', '#ffcc02', '#ff9500'];
         foreach ($all_forms_data as $index => $form_data) {
             // Entry data for each form
@@ -366,7 +367,11 @@ if ($date_preset && $date_preset !== 'custom') {
             $individual_forms_data[] = [
                 'label' => $form_data['form_title'],
                 'data' => array_values($form_daily_entries),
-                'color' => $colors[$index % count($colors)],
+                'borderColor' => $colors[$index % count($colors)],
+                'backgroundColor' => str_replace(')', ', 0.1)', $colors[$index % count($colors)]),
+                'borderWidth' => 2,
+                'fill' => false,
+                'tension' => 0.4,
             ];
 
             // Revenue data for each form
@@ -376,7 +381,11 @@ if ($date_preset && $date_preset !== 'custom') {
                     $individual_revenue_data[] = [
                         'label' => $form_data['form_title'],
                         'data' => array_values($form_daily_revenue),
-                        'color' => $colors[$index % count($colors)],
+                        'borderColor' => $colors[$index % count($colors)],
+                        'backgroundColor' => str_replace(')', ', 0.1)', $colors[$index % count($colors)]),
+                        'borderWidth' => 2,
+                        'fill' => false,
+                        'tension' => 0.4,
                     ];
                 }
             }
@@ -384,6 +393,7 @@ if ($date_preset && $date_preset !== 'custom') {
     }
 
     $chart_script = "
+    window.chartView = " . json_encode($chart_view ?? 'aggregated') . ";
     window.chartMode = " . json_encode($show_by) . ";
     window.selectedFormLabel = " . json_encode($selected_form === 'all' ? 'All Forms' : ($form['title'] ?? '')) . ";
 
