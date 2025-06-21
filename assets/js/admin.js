@@ -143,6 +143,7 @@ jQuery(document).ready(function($) {
             console.log('Mode:', mode);
             console.log('Chart View:', chartView);
             console.log('Condition (mode === "total" && chartView === "individual"):', (mode === 'total' && chartView === 'individual'));
+            console.log('Individual Forms Data:', JSON.stringify(window.individualFormsData, null, 2));
 
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                 formatFormLabel(window.selectedFormLabel) : 
@@ -317,6 +318,7 @@ jQuery(document).ready(function($) {
             console.log('Mode:', mode);
             console.log('Chart View:', chartView);
             console.log('Condition (mode === "total" && chartView === "individual"):', (mode === 'total' && chartView === "individual"));
+            console.log('Individual Revenue Data:', JSON.stringify(window.individualRevenueData, null, 2));
 
             console.log('Revenue chart data values:', chartData ? chartData.data : 'no data');
             console.log('Revenue chart data type check:', chartData ? chartData.data.some(function(v){return parseFloat(v) > 0;}) : 'no data');
