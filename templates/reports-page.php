@@ -413,5 +413,4 @@ if ($date_preset && $date_preset !== 'custom') {
     ?>
     </div> <!-- .report-container -->
 <?php endif; ?>
-</div> <!-- .report-container -->
-</div> <!-- .wrap --> <!-- .wrap --> 
+</div> <!-- .wrap --> 
