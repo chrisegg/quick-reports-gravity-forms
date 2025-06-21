@@ -421,6 +421,39 @@ if ($date_preset && $date_preset !== 'custom') {
             error_log('- $revenue_chart_labels: ' . print_r($revenue_chart_labels, true));
             error_log('- $revenue_chart_data_values: ' . print_r($revenue_chart_data_values, true));
             
+            // Debug: Check form information
+            if ($selected_form !== 'all') {
+                $form_obj = GFAPI::get_form($selected_form);
+                error_log('GF QuickReports: Form ' . $selected_form . ' has ' . count($form_obj['fields']) . ' fields');
+                foreach ($form_obj['fields'] as $field) {
+                    if (isset($field['type']) && in_array($field['type'], ['product', 'singleproduct', 'option'])) {
+                        error_log('GF QuickReports: Found revenue field - ID: ' . $field['id'] . ', Type: ' . $field['type'] . ', Label: ' . (isset($field['label']) ? $field['label'] : 'N/A'));
+                    }
+                }
+                
+                // Test revenue calculation for first few entries
+                $test_entries = GFAPI::get_entries($selected_form, array('status' => 'active'), null, array('offset' => 0, 'page_size' => 3));
+                error_log('GF QuickReports: Testing revenue calculation for ' . count($test_entries) . ' entries');
+                foreach ($test_entries as $entry) {
+                    $entry_revenue = 0;
+                    foreach ($form_obj['fields'] as $field) {
+                        if (isset($field['type']) && in_array($field['type'], ['product', 'singleproduct', 'option'])) {
+                            $val = rgar($entry, $field['id']);
+                            if (is_numeric($val)) {
+                                $entry_revenue += floatval($val);
+                            } elseif (is_array($val) && isset($val['price'])) {
+                                $entry_revenue += floatval($val['price']);
+                            } elseif (is_string($val)) {
+                                if (preg_match('/([\d\.,]+)/', $val, $matches)) {
+                                    $entry_revenue += floatval(str_replace(',', '', $matches[1]));
+                                }
+                            }
+                        }
+                    }
+                    error_log('GF QuickReports: Entry ' . $entry['id'] . ' revenue: ' . $entry_revenue);
+                }
+            }
+            
             // If no revenue data from PHP backend, use the same labels as entries but with empty revenue data
             if (empty($revenue_chart_labels) && empty($revenue_chart_data_values)) {
                 $revenue_chart_labels = $chart_labels; // Use same labels as entries
@@ -428,6 +461,14 @@ if ($date_preset && $date_preset !== 'custom') {
             }
             
             $chart_script = "
+            // Debug output for revenue data
+            console.log('Revenue chart data from PHP:', " . json_encode($revenue_chart_data) . ");
+            console.log('Revenue chart labels:', " . json_encode($revenue_chart_labels) . ");
+            console.log('Revenue chart data values:', " . json_encode($revenue_chart_data_values) . ");
+            
+            // Show alert with debug info
+            alert('Revenue Debug: Labels=' + " . json_encode(count($revenue_chart_labels)) . " + ', Values=' + " . json_encode(count($revenue_chart_data_values)) . " + ', Total=' + " . json_encode(array_sum($revenue_chart_data_values)) . ");
+            
             window.chartMode = " . json_encode($show_by) . ";
             window.chartData = {
                 labels: " . json_encode($chart_labels) . ",

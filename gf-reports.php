@@ -251,6 +251,9 @@ class GF_QuickReports {
             $query = "SELECT DATE(date_created) as date, id FROM {$table_name} WHERE {$where} ORDER BY date ASC";
             $results = $wpdb->get_results($query);
             
+            // Debug output
+            error_log('GF QuickReports: Revenue query returned ' . count($results) . ' entries');
+            
             $daily_revenue = array();
             if (!empty($results)) {
                 foreach ($results as $row) {
@@ -258,7 +261,13 @@ class GF_QuickReports {
                     if (!isset($daily_revenue[$date])) {
                         $daily_revenue[$date] = 0;
                     }
-                    $daily_revenue[$date] += $this->calculate_revenue_from_entries(array($row->id));
+                    $revenue = $this->calculate_revenue_from_entries(array($row->id));
+                    $daily_revenue[$date] += $revenue;
+                    
+                    // Debug output for first few entries
+                    if (count($daily_revenue) <= 3) {
+                        error_log('GF QuickReports: Entry ' . $row->id . ' on ' . $date . ' has revenue: ' . $revenue);
+                    }
                 }
             }
             
@@ -271,6 +280,8 @@ class GF_QuickReports {
                     $data[] = round($revenue, 2);
                 }
             }
+            
+            error_log('GF QuickReports: Final revenue data - ' . count($labels) . ' days, total revenue: ' . array_sum($data));
             
             return array('labels' => $labels, 'data' => $data);
         } else {
@@ -318,28 +329,66 @@ class GF_QuickReports {
                 continue;
             }
             
-            // Find product fields
-            $product_fields = array();
+            $entry_revenue = 0;
+            
+            // Find product fields and other potential revenue fields
+            $revenue_fields = array();
             foreach ($form['fields'] as $field) {
-                if (isset($field['type']) && $field['type'] === 'product') {
-                    $product_fields[] = $field['id'];
+                if (isset($field['type'])) {
+                    // Product fields
+                    if ($field['type'] === 'product') {
+                        $revenue_fields[] = $field['id'];
+                    }
+                    // Number fields that might contain prices
+                    elseif ($field['type'] === 'number' && isset($field['label']) && 
+                           (stripos($field['label'], 'price') !== false || 
+                            stripos($field['label'], 'amount') !== false || 
+                            stripos($field['label'], 'total') !== false || 
+                            stripos($field['label'], 'cost') !== false)) {
+                        $revenue_fields[] = $field['id'];
+                    }
+                    // Single product fields
+                    elseif ($field['type'] === 'singleproduct') {
+                        $revenue_fields[] = $field['id'];
+                    }
+                    // Option fields
+                    elseif ($field['type'] === 'option') {
+                        $revenue_fields[] = $field['id'];
+                    }
                 }
             }
             
             // Calculate revenue for this entry
-            if (!empty($product_fields)) {
-                foreach ($product_fields as $pid) {
-                    $val = rgar($entry, $pid);
+            if (!empty($revenue_fields)) {
+                foreach ($revenue_fields as $field_id) {
+                    $val = rgar($entry, $field_id);
                     if (is_numeric($val)) {
-                        $total_revenue += floatval($val);
+                        $entry_revenue += floatval($val);
                     } elseif (is_array($val) && isset($val['price'])) {
-                        $total_revenue += floatval($val['price']);
+                        $entry_revenue += floatval($val['price']);
                     } elseif (is_string($val)) {
                         if (preg_match('/([\d\.,]+)/', $val, $matches)) {
-                            $total_revenue += floatval(str_replace(',', '', $matches[1]));
+                            $entry_revenue += floatval(str_replace(',', '', $matches[1]));
                         }
                     }
                 }
+            }
+            
+            // If no revenue fields found, try to find any numeric fields that might be prices
+            if ($entry_revenue == 0) {
+                foreach ($entry as $key => $value) {
+                    if (is_numeric($key) && is_numeric($value) && $value > 0 && $value < 10000) {
+                        // This might be a price field
+                        $entry_revenue += floatval($value);
+                    }
+                }
+            }
+            
+            $total_revenue += $entry_revenue;
+            
+            // Debug output for first few entries
+            if (count($entry_ids) <= 3) {
+                error_log('GF QuickReports: Entry ' . $entry_id . ' revenue: ' . $entry_revenue . ' (found ' . count($revenue_fields) . ' revenue fields)');
             }
         }
         
