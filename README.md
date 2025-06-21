@@ -1,140 +1,64 @@
 # Quick Reports for Gravity Forms
 
-A powerful WordPress plugin that provides advanced reporting and visualization capabilities for Gravity Forms entries.
+**Contributors:**      Chris Eggleston
+**Tags:**              gravity forms, reports, reporting, charts, gravityforms
+**Requires at least:** 5.0
+**Tested up to:**      6.8
+**Stable tag:**        1.0.0
+**License:**           GPLv2 or later
+**License URI:**       https://www.gnu.org/licenses/gpl-2.0.html
 
-![quickreports-img1](https://github.com/user-attachments/assets/04db21b5-0986-494c-85e7-ce23d4262744)
+A simple and intuitive reporting add-on for Gravity Forms that provides beautiful charts and key metrics right in your WordPress dashboard.
 
+## Description
 
-## Features
+Quick Reports for Gravity Forms provides a clean and easy-to-use reporting interface directly within your WordPress admin area. Stop exporting CSVs just to see your form's performance. With this plugin, you can instantly visualize form submissions, track revenue from product fields, and compare performance over time with beautiful, interactive charts powered by Chart.js.
 
-- **Interactive Charts**: Visualize form submission data with Chart.js-powered graphs
-- **Multiple Chart Modes**: View data per day or as totals
-- **Form Comparison**: Compare data between different forms
-- **Date Range Filtering**: Filter data by custom date ranges or use preset options
-- **Export Capabilities**: Export reports as CSV or PDF
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
-- **All Forms Overview**: Get insights across all your forms with aggregated data
-- **Revenue Tracking**: Automatically calculate revenue from product fields
+### Key Features
 
-## Requirements
+*   **Beautiful, Interactive Charts:** Visualize entry counts and revenue over time with clean line and bar charts.
+*   **All Forms Dashboard:** View aggregated totals for all your forms at once, or see how individual forms perform on a single chart.
+*   **Comparison Tool:** Compare the performance of any two forms against each other for the same time period.
+*   **Revenue Tracking:** Automatically calculates and displays total revenue from any form containing product, option, or single product fields.
+*   **Intuitive Date Filters:** Quickly filter your reports by common presets like "Last 7 Days," "Last 30 Days," "Year to Date," or select a custom date range.
+*   **Summary Data Table:** See key metrics like total entries, average entries per day, and total revenue in a clear, easy-to-read table.
+*   **CSV & PDF Export:** Export your summary report data to a CSV or a print-friendly PDF, including a snapshot of the charts.
 
-- WordPress 5.0 or higher
-- PHP 7.2 or higher
-- Gravity Forms plugin (any license)
-- Composer (for PDF export functionality)
+This plugin is designed to be lightweight, intuitive, and a natural extension of the Gravity Forms experience.
 
 ## Installation
 
-1. Upload the plugin files to `/wp-content/plugins/gf-quickreports/`
-2. Install dependencies: `composer install`
-3. Activate the plugin through the 'Plugins' menu in WordPress
-4. Navigate to Forms > Quick Reports to start using
+1.  Upload the `gf-reports` directory to the `/wp-content/plugins/` directory.
+2.  Activate the plugin through the 'Plugins' menu in WordPress.
+3.  Navigate to the 'Forms' > 'Quick Reports' menu in your WordPress dashboard to start viewing your reports.
 
-## Usage
+## Frequently Asked Questions
 
-### Basic Reporting
+**Does this work with product/pricing fields?**
 
-1. Go to **Forms > Quick Reports** in your WordPress admin
-2. Select a form from the dropdown (or choose "All Forms" for aggregated data)
-3. Choose your date range using the date picker or preset options
-4. Select chart mode (Per Day or Total)
-5. Click "Generate Report"
+Yes! The plugin automatically detects forms with product, option, or single product fields and will generate a revenue report and chart alongside the entry count data.
 
-### Advanced Features
+**Can I compare multiple forms?**
 
-- **Form Comparison**: Select a second form to compare data side-by-side
-- **All Forms View**: Select "All Forms" to see combined data from all forms
-- **Individual Forms View**: When viewing all forms, switch between individual and aggregated chart views
-- **Export**: Use the export buttons to download CSV or PDF reports
+You can compare any two individual forms. The "All Forms" view provides a combined chart to see how all forms perform together.
 
-### Chart Modes
+## Screenshots
 
-- **Per Day**: Shows daily submission counts over time
-- **Total**: Shows the total number of submissions for the selected period
+1.  The main reports dashboard showing the "All Forms" view with individual form performance.
+2.  A single form report showing entries and revenue over time.
+3.  The comparison tool in action.
 
-### Date Presets
+| All Forms | Individual Form | Form Comparison |
+|---|---|---|
+| ![quickreports-allforms](https://github.com/user-attachments/assets/f4ff1040-accf-4ffa-9e2d-811a7d369f3d) | ![quickreports-singleform](https://github.com/user-attachments/assets/a142c961-3e51-4162-bc8e-1f14647a6dff) | ![quickreports-comparison](https://github.com/user-attachments/assets/192c1153-8759-4b98-822c-910b090b7909) |
 
-Quick access to common date ranges:
-- Today
-- Yesterday
-- Last 7 Days
-- Last 30 Days
-- Last 60 Days
-- Last 90 Days
-- Year to Date
-- Last Year
-- Custom Range (manual date selection)
-
-## Export Features
-
-### CSV Export
-- Includes summary data with form statistics
-- Compatible with Excel, Google Sheets, and other spreadsheet applications
-
-![quickreports-csv](https://github.com/user-attachments/assets/f997f5e4-feab-47a1-929c-7310c81eb941)
-
-### PDF Export
-- Professional report layout with proper formatting
-- Includes summary statistics and comparison data
-- Clean, print-ready design
-- Generated using DOMPDF library
-
-![quickreports-pdf](https://github.com/user-attachments/assets/ba5de4c7-557e-420e-ab18-dc4c516efae6)
-
-## Customization
-
-### Styling
-The plugin uses CSS classes that can be customized:
-- `.gf-quickreports-results`: Main results container
-- `.report-summary-table`: Summary statistics table
-- `.chart-container`: Chart area
-- `.recent-entries`: Entries table
-
-### Hooks and Filters
-The plugin provides various WordPress hooks for customization:
-- `gf_quickreports_before_chart`: Before chart rendering
-- `gf_quickreports_after_chart`: After chart rendering
-- `gf_quickreports_export_data`: Modify export data
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Charts not displaying**: Ensure Chart.js is loading properly (now served locally)
-2. **Export not working**: Check file permissions and PHP memory limits
-3. **No data showing**: Verify form has active entries and date range is correct
-4. **PDF export fails**: Ensure Composer dependencies are installed
-
-### Debug Mode
-Enable WordPress debug mode to see detailed error messages:
-```php
-define('WP_DEBUG', true);
-define('WP_DEBUG_LOG', true);
-```
-
-## Support
-
-For support and feature requests, please visit our support forum or contact us directly.
 
 ## Changelog
 
-### Version 1.0.0
-- Initial release
-- Interactive chart functionality with Chart.js
-- CSV and PDF export capabilities
-- Form comparison features
-- All forms aggregation
-- Date preset filtering
-- Revenue calculation from product fields
-- Responsive design
-- Local Chart.js library (no external dependencies)
+### 1.0.0
+*   Initial release.
 
-## License
+## Upgrade Notice
 
-This plugin is licensed under the GPL v2 or later.
-
-## Credits
-
-- Built with [Chart.js](https://www.chartjs.org/) for data visualization
-- PDF generation powered by [DOMPDF](https://github.com/dompdf/dompdf)
-- Icons from [Material Design Icons](https://materialdesignicons.com/)
+### 1.0.0
+*   Initial release of the plugin.
