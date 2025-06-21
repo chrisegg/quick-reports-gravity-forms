@@ -93,20 +93,19 @@ jQuery(document).ready(function($) {
         this.submit();
     });
     
-    // Form selection change - update compare form options
+    // Update compare form options on main form change
     $('#form_id').on('change', function() {
         var selectedForm = $(this).val();
-        
-        // Immediately update compare form options
-        if (selectedForm && selectedForm !== 'all') {
-            updateCompareFormOptions(selectedForm);
-        } else {
-            // Disable compare form dropdown for "All Forms" or no selection
-            $('#compare_form_id').html('<option value="">Compare With...</option>').prop('disabled', true);
-        }
-        
+        updateCompareFormOptions(selectedForm, null);
         updateChartViewVisibility(selectedForm);
     });
+
+    // Initial state setup
+    var initialFormId = $('#form_id').val();
+    updateCompareFormOptions(initialFormId, $('#current_compare_form_id').val());
+    updateChartViewVisibility(initialFormId);
+    updateDateFields($('#date_preset').val());
+    handleResponsiveTable();
     
     // Date preset change
     $('#date_preset').on('change', function() {
@@ -776,10 +775,10 @@ jQuery(document).ready(function($) {
     }
     
     /**
-     * Update chart view visibility based on form selection
+     * Shows/hides the chart view dropdown based on form selection
      */
     function updateChartViewVisibility(selectedForm) {
-        var $chartViewContainer = $('#chart_view').closest('.alignleft');
+        var $chartViewContainer = $('#chart_view').closest('.alignleft.actions');
         if (selectedForm === 'all') {
             $chartViewContainer.show();
         } else {
