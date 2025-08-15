@@ -29,6 +29,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Include required classes
+require_once plugin_dir_path(__FILE__) . 'includes/class-attributer-detector.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-attribution-cache.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-attribution-settings.php';
+
 // Define plugin constants
 define('GR_QUICKREPORTS_VERSION', '1.0.0');
 define('GR_QUICKREPORTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
@@ -64,6 +69,12 @@ class GR_QuickReports {
         add_action('wp_ajax_gr_quickreports_export_pdf', array($this, 'handle_pdf_export'));
         add_action('wp_ajax_gr_quickreports_get_compare_forms', array($this, 'get_compare_forms'));
         add_action('wp_ajax_gr_quickreports_get_date_presets', array($this, 'get_date_presets'));
+        
+        // Attribution AJAX handlers
+        add_action('wp_ajax_gr_get_attribution_data', array($this, 'handle_get_attribution_data'));
+        add_action('wp_ajax_gr_get_attribution_filters', array($this, 'handle_get_attribution_filters'));
+        add_action('wp_ajax_gr_update_channel_costs', array($this, 'handle_update_channel_costs'));
+        add_action('wp_ajax_gr_detect_attributer_fields', array($this, 'handle_detect_attributer_fields'));
     }
 
     /**
@@ -71,6 +82,54 @@ class GR_QuickReports {
      */
     public function init() {
         load_plugin_textdomain('gf-quickreports', false, dirname(plugin_basename(__FILE__)) . '/languages');
+        
+        // Initialize attribution system if enabled
+        $this->maybe_init_attribution();
+    }
+    
+    /**
+     * Maybe initialize attribution system
+     */
+    private function maybe_init_attribution() {
+        $settings = get_option(GR_AttributionSettings::SETTINGS_OPTION, GR_AttributionSettings::get_default_settings());
+        
+        if (!empty($settings['enable_attribution'])) {
+            // Show admin notice about attribution status
+            add_action('admin_notices', array($this, 'show_attribution_status'));
+        }
+    }
+    
+    /**
+     * Show attribution system status
+     */
+    public function show_attribution_status() {
+        $current_screen = get_current_screen();
+        
+        // Only show on our plugin pages
+        if (!$current_screen || !in_array($current_screen->id, array('forms_page_gr_quickreports', 'forms_page_gr_attribution_settings'))) {
+            return;
+        }
+        
+        $forms_with_attribution = GR_AttributerDetector::get_forms_with_attribution();
+        
+        if (empty($forms_with_attribution)) {
+            echo '<div class="notice notice-warning is-dismissible">';
+            echo '<p>' . esc_html__('Attribution tracking is enabled but no forms with Attributer fields were detected.', 'gf-quickreports') . '</p>';
+            echo '</div>';
+        } else {
+            $form_count = count($forms_with_attribution);
+            echo '<div class="notice notice-success is-dismissible">';
+            echo '<p>' . sprintf(
+                esc_html(_n(
+                    'Attribution tracking is active. Found %d form with Attributer fields.',
+                    'Attribution tracking is active. Found %d forms with Attributer fields.',
+                    $form_count,
+                    'gf-quickreports'
+                )),
+                $form_count
+            ) . '</p>';
+            echo '</div>';
+        }
     }
 
     /**
@@ -996,6 +1055,136 @@ class GR_QuickReports {
         }
         
         wp_send_json_success($dates);
+    }
+    
+    /**
+     * Handle get attribution data AJAX request
+     */
+    public function handle_get_attribution_data() {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
+            wp_die(esc_html__('Security check failed', 'gf-quickreports'));
+        }
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Insufficient permissions', 'gf-quickreports'));
+        }
+        
+        $form_id = !empty($_POST['form_id']) ? wp_unslash($_POST['form_id']) : '';
+        $start_date = !empty($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+        $end_date = !empty($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+        $group_by = !empty($_POST['group_by']) ? sanitize_text_field(wp_unslash($_POST['group_by'])) : 'channel';
+        
+        $args = array(
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'group_by' => $group_by
+        );
+        
+        if ($form_id !== 'all') {
+            $args['form_id'] = absint($form_id);
+        }
+        
+        $attribution_data = GR_AttributionCache::get_attribution_data($args);
+        
+        wp_send_json_success($attribution_data);
+    }
+    
+    /**
+     * Handle get attribution filters AJAX request
+     */
+    public function handle_get_attribution_filters() {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
+            wp_die(esc_html__('Security check failed', 'gf-quickreports'));
+        }
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Insufficient permissions', 'gf-quickreports'));
+        }
+        
+        $form_id = !empty($_POST['form_id']) ? wp_unslash($_POST['form_id']) : '';
+        $start_date = !empty($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+        $end_date = !empty($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+        
+        $args = array(
+            'start_date' => $start_date,
+            'end_date' => $end_date
+        );
+        
+        if ($form_id !== 'all') {
+            $args['form_id'] = absint($form_id);
+        }
+        
+        $filters = array(
+            'channels' => GR_AttributionCache::get_unique_values('channel', $args),
+            'sources' => GR_AttributionCache::get_unique_values('source', $args),
+            'campaigns' => GR_AttributionCache::get_unique_values('campaign', $args),
+            'landing_page_groups' => GR_AttributionCache::get_unique_values('landing_page_group', $args)
+        );
+        
+        wp_send_json_success($filters);
+    }
+    
+    /**
+     * Handle update channel costs AJAX request
+     */
+    public function handle_update_channel_costs() {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
+            wp_die(esc_html__('Security check failed', 'gf-quickreports'));
+        }
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Insufficient permissions', 'gf-quickreports'));
+        }
+        
+        $cost_data = array(
+            'channel' => !empty($_POST['channel']) ? sanitize_text_field(wp_unslash($_POST['channel'])) : '',
+            'source' => !empty($_POST['source']) ? sanitize_text_field(wp_unslash($_POST['source'])) : '',
+            'campaign' => !empty($_POST['campaign']) ? sanitize_text_field(wp_unslash($_POST['campaign'])) : '',
+            'cost_per_acquisition' => !empty($_POST['cost_per_acquisition']) ? floatval($_POST['cost_per_acquisition']) : 0,
+            'monthly_budget' => !empty($_POST['monthly_budget']) ? floatval($_POST['monthly_budget']) : 0,
+            'notes' => !empty($_POST['notes']) ? sanitize_textarea_field(wp_unslash($_POST['notes'])) : ''
+        );
+        
+        if (empty($cost_data['channel'])) {
+            wp_send_json_error(esc_html__('Channel name is required', 'gf-quickreports'));
+            return;
+        }
+        
+        $result = GR_AttributionCache::update_channel_costs($cost_data);
+        
+        if ($result) {
+            wp_send_json_success(esc_html__('Channel costs updated successfully', 'gf-quickreports'));
+        } else {
+            wp_send_json_error(esc_html__('Failed to update channel costs', 'gf-quickreports'));
+        }
+    }
+    
+    /**
+     * Handle detect Attributer fields AJAX request
+     */
+    public function handle_detect_attributer_fields() {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
+            wp_die(esc_html__('Security check failed', 'gf-quickreports'));
+        }
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Insufficient permissions', 'gf-quickreports'));
+        }
+        
+        $form_id = !empty($_POST['form_id']) ? absint($_POST['form_id']) : 0;
+        
+        if (!$form_id) {
+            wp_send_json_error(esc_html__('Form ID is required', 'gf-quickreports'));
+            return;
+        }
+        
+        $detected_fields = GR_AttributerDetector::detect_attributer_fields($form_id);
+        $forms_with_attribution = GR_AttributerDetector::get_forms_with_attribution();
+        
+        wp_send_json_success(array(
+            'detected_fields' => $detected_fields,
+            'forms_with_attribution' => $forms_with_attribution
+        ));
     }
 }
 
