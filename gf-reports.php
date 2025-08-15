@@ -33,6 +33,7 @@ if (!defined('ABSPATH')) {
 require_once plugin_dir_path(__FILE__) . 'includes/class-attributer-detector.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-attribution-cache.php';
 require_once plugin_dir_path(__FILE__) . 'includes/class-attribution-settings.php';
+require_once plugin_dir_path(__FILE__) . 'includes/class-attribution-calculator.php';
 
 // Define plugin constants
 define('GR_QUICKREPORTS_VERSION', '1.0.0');
@@ -75,6 +76,8 @@ class GR_QuickReports {
         add_action('wp_ajax_gr_get_attribution_filters', array($this, 'handle_get_attribution_filters'));
         add_action('wp_ajax_gr_update_channel_costs', array($this, 'handle_update_channel_costs'));
         add_action('wp_ajax_gr_detect_attributer_fields', array($this, 'handle_detect_attributer_fields'));
+        add_action('wp_ajax_gr_export_attribution_csv', array($this, 'handle_attribution_csv_export'));
+        add_action('wp_ajax_gr_export_attribution_pdf', array($this, 'handle_attribution_pdf_export'));
     }
 
     /**
@@ -171,6 +174,18 @@ class GR_QuickReports {
             GR_QUICKREPORTS_VERSION,
             true
         );
+        
+        // Enqueue attribution scripts if enabled
+        $attribution_settings = get_option(GR_AttributionSettings::SETTINGS_OPTION, GR_AttributionSettings::get_default_settings());
+        if (!empty($attribution_settings['enable_attribution'])) {
+            wp_enqueue_script(
+                'gr-attribution-admin',
+                GR_QUICKREPORTS_PLUGIN_URL . 'assets/js/attribution.js',
+                array('jquery', 'chartjs', 'gr-quickreports-admin'),
+                GR_QUICKREPORTS_VERSION,
+                true
+            );
+        }
 
         // Enqueue plugin styles
         wp_enqueue_style(
@@ -1185,6 +1200,305 @@ class GR_QuickReports {
             'detected_fields' => $detected_fields,
             'forms_with_attribution' => $forms_with_attribution
         ));
+    }
+    
+    /**
+     * Handle attribution CSV export
+     */
+    public function handle_attribution_csv_export() {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
+            wp_die(esc_html__('Security check failed', 'gf-quickreports'));
+        }
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Insufficient permissions', 'gf-quickreports'));
+        }
+        
+        $form_id = !empty($_POST['form_id']) ? wp_unslash($_POST['form_id']) : 'all';
+        $group_by = !empty($_POST['group_by']) ? sanitize_text_field(wp_unslash($_POST['group_by'])) : 'channel';
+        $start_date = !empty($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+        $end_date = !empty($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+        
+        // Get attribution data
+        $args = array(
+            'start_date' => $start_date,
+            'end_date' => $end_date,
+            'group_by' => $group_by
+        );
+        
+        if ($form_id !== 'all') {
+            $args['form_id'] = absint($form_id);
+        }
+        
+        $attribution_data = GR_AttributionCache::get_attribution_data($args);
+        
+        // Get cost data for ROI calculations
+        $channel_costs = array();
+        $unique_channels = array_unique(array_column($attribution_data, 'group_name'));
+        foreach ($unique_channels as $channel) {
+            $cost_data = GR_AttributionCache::get_channel_costs($channel);
+            if ($cost_data) {
+                $channel_costs[$channel] = $cost_data;
+            }
+        }
+        
+        // Calculate ROI and other metrics
+        $calculated_data = GR_AttributionCalculator::calculate_roi($attribution_data, $channel_costs);
+        
+        // Set headers for CSV download
+        $filename = 'attribution-report-' . gmdate('Y-m-d') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=' . $filename);
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        
+        // Create CSV content
+        $output = fopen('php://output', 'w');
+        
+        // CSV Headers
+        $headers = array(
+            ucfirst($group_by),
+            'Entries',
+            'Revenue',
+            'Avg Revenue/Entry',
+            'Cost',
+            'ROI (%)',
+            'Profit'
+        );
+        
+        fputcsv($output, $headers);
+        
+        // CSV Data
+        foreach ($calculated_data as $row) {
+            $group_name = $row['group_name'] ?? $row['date_group'] ?? '(not set)';
+            $entries = intval($row['entries']);
+            $revenue = floatval($row['total_revenue']);
+            $avg_revenue = $entries > 0 ? $revenue / $entries : 0;
+            $cost = isset($row['total_cost']) ? floatval($row['total_cost']) : 0;
+            $roi = isset($row['roi']) ? floatval($row['roi']) : 0;
+            $profit = isset($row['profit']) ? floatval($row['profit']) : $revenue - $cost;
+            
+            $csv_row = array(
+                $group_name,
+                $entries,
+                '$' . number_format($revenue, 2),
+                '$' . number_format($avg_revenue, 2),
+                '$' . number_format($cost, 2),
+                number_format($roi, 2) . '%',
+                '$' . number_format($profit, 2)
+            );
+            
+            fputcsv($output, $csv_row);
+        }
+        
+        fclose($output);
+        exit;
+    }
+    
+    /**
+     * Handle attribution PDF export
+     */
+    public function handle_attribution_pdf_export() {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
+            wp_die(esc_html__('Security check failed', 'gf-quickreports'));
+        }
+        
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Insufficient permissions', 'gf-quickreports'));
+        }
+        
+        $form_id = !empty($_POST['form_id']) ? wp_unslash($_POST['form_id']) : 'all';
+        $group_by = !empty($_POST['group_by']) ? sanitize_text_field(wp_unslash($_POST['group_by'])) : 'channel';
+        $start_date = !empty($_POST['start_date']) ? sanitize_text_field(wp_unslash($_POST['start_date'])) : '';
+        $end_date = !empty($_POST['end_date']) ? sanitize_text_field(wp_unslash($_POST['end_date'])) : '';
+        
+        // Get chart images
+        $entries_chart = !empty($_POST['entries_chart']) ? wp_unslash($_POST['entries_chart']) : '';
+        $revenue_chart = !empty($_POST['revenue_chart']) ? wp_unslash($_POST['revenue_chart']) : '';
+        
+        try {
+            require_once GR_QUICKREPORTS_PLUGIN_DIR . 'vendor/autoload.php';
+            
+            $dompdf = new \Dompdf\Dompdf();
+            $dompdf->setPaper('A4', 'portrait');
+            
+            // Get attribution data
+            $args = array(
+                'start_date' => $start_date,
+                'end_date' => $end_date,
+                'group_by' => $group_by
+            );
+            
+            if ($form_id !== 'all') {
+                $args['form_id'] = absint($form_id);
+            }
+            
+            $attribution_data = GR_AttributionCache::get_attribution_data($args);
+            
+            // Get cost data for ROI calculations
+            $channel_costs = array();
+            $unique_channels = array_unique(array_column($attribution_data, 'group_name'));
+            foreach ($unique_channels as $channel) {
+                $cost_data = GR_AttributionCache::get_channel_costs($channel);
+                if ($cost_data) {
+                    $channel_costs[$channel] = $cost_data;
+                }
+            }
+            
+            // Calculate metrics
+            $calculated_data = GR_AttributionCalculator::calculate_roi($attribution_data, $channel_costs);
+            $performance_metrics = GR_AttributionCalculator::calculate_performance_metrics($calculated_data);
+            
+            // Generate PDF HTML
+            $html = $this->generate_attribution_pdf_html($calculated_data, $performance_metrics, $group_by, $start_date, $end_date, $entries_chart, $revenue_chart);
+            
+            $dompdf->loadHtml($html);
+            $dompdf->render();
+            
+            $filename = 'attribution-report-' . gmdate('Y-m-d') . '.pdf';
+            $dompdf->stream($filename, array('Attachment' => true));
+            
+        } catch (Exception $e) {
+            wp_die(esc_html__('PDF generation failed: ', 'gf-quickreports') . esc_html($e->getMessage()));
+        }
+        
+        exit;
+    }
+    
+    /**
+     * Generate PDF HTML for attribution report
+     */
+    private function generate_attribution_pdf_html($data, $metrics, $group_by, $start_date, $end_date, $entries_chart, $revenue_chart) {
+        $html = '<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Attribution Report</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                .summary { margin-bottom: 30px; }
+                .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+                .summary-card { background: #f8f9fa; padding: 15px; border-radius: 5px; text-align: center; }
+                .card-value { font-size: 24px; font-weight: bold; color: #333; }
+                .card-label { font-size: 12px; color: #666; margin-top: 5px; }
+                .charts { margin-bottom: 30px; }
+                .chart { margin-bottom: 20px; text-align: center; }
+                .chart img { max-width: 100%; height: auto; }
+                .data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                .data-table th, .data-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                .data-table th { background: #f2f2f2; font-weight: bold; }
+                .positive { color: #28a745; }
+                .negative { color: #dc3545; }
+                .neutral { color: #6c757d; }
+                .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Attribution Analytics Report</h1>
+                <p>Period: ' . esc_html($start_date) . ' to ' . esc_html($end_date) . '</p>
+                <p>Grouped by: ' . esc_html(ucfirst($group_by)) . '</p>
+                <p>Generated: ' . esc_html(gmdate('Y-m-d H:i:s')) . ' UTC</p>
+            </div>
+            
+            <div class="summary">
+                <h2>Performance Summary</h2>
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="card-value">' . esc_html(number_format($metrics['total_entries'])) . '</div>
+                        <div class="card-label">Total Entries</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="card-value">$' . esc_html(number_format($metrics['total_revenue'], 2)) . '</div>
+                        <div class="card-label">Total Revenue</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="card-value">$' . esc_html(number_format($metrics['avg_revenue_per_entry'], 2)) . '</div>
+                        <div class="card-label">Avg Revenue/Entry</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="card-value">' . esc_html(number_format($metrics['overall_roi'], 1)) . '%</div>
+                        <div class="card-label">Overall ROI</div>
+                    </div>
+                </div>
+            </div>';
+        
+        // Add charts if available
+        if (!empty($entries_chart) || !empty($revenue_chart)) {
+            $html .= '<div class="charts">
+                <h2>Performance Charts</h2>';
+            
+            if (!empty($entries_chart)) {
+                $html .= '<div class="chart">
+                    <h3>Entries by ' . esc_html(ucfirst($group_by)) . '</h3>
+                    <img src="' . $entries_chart . '" alt="Entries Chart">
+                </div>';
+            }
+            
+            if (!empty($revenue_chart)) {
+                $html .= '<div class="chart">
+                    <h3>Revenue by ' . esc_html(ucfirst($group_by)) . '</h3>
+                    <img src="' . $revenue_chart . '" alt="Revenue Chart">
+                </div>';
+            }
+            
+            $html .= '</div>';
+        }
+        
+        // Add data table
+        $html .= '<div class="data">
+            <h2>Detailed Performance Data</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>' . esc_html(ucfirst($group_by)) . '</th>
+                        <th>Entries</th>
+                        <th>Revenue</th>
+                        <th>Avg Revenue/Entry</th>
+                        <th>Cost</th>
+                        <th>ROI</th>
+                        <th>Profit</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        foreach ($data as $row) {
+            $group_name = $row['group_name'] ?? $row['date_group'] ?? '(not set)';
+            $entries = intval($row['entries']);
+            $revenue = floatval($row['total_revenue']);
+            $avg_revenue = $entries > 0 ? $revenue / $entries : 0;
+            $cost = isset($row['total_cost']) ? floatval($row['total_cost']) : 0;
+            $roi = isset($row['roi']) ? floatval($row['roi']) : 0;
+            $profit = isset($row['profit']) ? floatval($row['profit']) : $revenue - $cost;
+            
+            $roi_class = 'neutral';
+            if ($roi > 0) $roi_class = 'positive';
+            elseif ($roi < 0) $roi_class = 'negative';
+            
+            $html .= '<tr>
+                <td><strong>' . esc_html($group_name) . '</strong></td>
+                <td>' . esc_html(number_format($entries)) . '</td>
+                <td>$' . esc_html(number_format($revenue, 2)) . '</td>
+                <td>$' . esc_html(number_format($avg_revenue, 2)) . '</td>
+                <td>$' . esc_html(number_format($cost, 2)) . '</td>
+                <td class="' . $roi_class . '">' . esc_html(number_format($roi, 1)) . '%</td>
+                <td class="' . ($profit >= 0 ? 'positive' : 'negative') . '">$' . esc_html(number_format($profit, 2)) . '</td>
+            </tr>';
+        }
+        
+        $html .= '</tbody>
+            </table>
+        </div>
+        
+        <div class="footer">
+            <p>Generated by Quick Reports for Gravity Forms</p>
+        </div>
+        
+        </body>
+        </html>';
+        
+        return $html;
     }
 }
 
