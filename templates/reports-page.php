@@ -136,7 +136,7 @@ if ($date_preset && $date_preset !== 'custom') {
                 <input type="date" name="end" id="end_date" value="<?php echo esc_attr($end_date); ?>">
             </div>
             <div class="alignleft actions">
-                <input type="hidden" name="page" value="gf_quickreports">
+                <input type="hidden" name="page" value="gr_quickreports">
                 <input type="hidden" id="current_compare_form_id" value="<?php echo isset($_GET['compare_form_id']) ? esc_attr(wp_unslash($_GET['compare_form_id'])) : ''; ?>">
                 <input type="submit" class="button" value="<?php esc_attr_e('Generate Report', 'gf-quickreports'); ?>">
                 <?php if ($selected_form): ?>
@@ -177,11 +177,11 @@ if ($date_preset && $date_preset !== 'custom') {
                     $entry_count = GFAPI::count_entries($form_id, $search_criteria);
                     
                     // Use new helper for revenue
-                    $daily_revenue = gf_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
+                    $daily_revenue = gr_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
                     $form_revenue = array_sum($daily_revenue);
 
                     // Get daily entries for this form
-                    $form_daily_entries = gf_quickreports_get_daily_entries($form_id, $start_date, $end_date);
+                    $form_daily_entries = gr_quickreports_get_daily_entries($form_id, $start_date, $end_date);
                     
                     // Aggregate daily entries
                     foreach ($form_daily_entries as $date => $count) {
@@ -221,12 +221,12 @@ if ($date_preset && $date_preset !== 'custom') {
                 $form = GFAPI::get_form($form_id);
 
                 // Calculate daily entries for chart and per-day summary
-                $daily_entries = gf_quickreports_get_daily_entries($form_id, $start_date, $end_date);
+                $daily_entries = gr_quickreports_get_daily_entries($form_id, $start_date, $end_date);
                 $days_count = count($daily_entries);
                 $avg_per_day = $days_count > 0 ? array_sum($daily_entries) / $days_count : 0;
 
                 // Use new helper for revenue
-                $daily_revenue = gf_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
+                $daily_revenue = gr_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
                 $total_revenue = array_sum($daily_revenue);
                 $product_fields = array('has_products' => $total_revenue > 0);
             }
@@ -235,7 +235,7 @@ if ($date_preset && $date_preset !== 'custom') {
             if ($compare_form && $selected_form !== 'all') {
                 $compare_entry_count = GFAPI::count_entries($compare_form, $search_criteria);
                 $compare_form_obj = GFAPI::get_form($compare_form);
-                $compare_daily_revenue = gf_quickreports_get_daily_revenue($compare_form, $start_date, $end_date);
+                $compare_daily_revenue = gr_quickreports_get_daily_revenue($compare_form, $start_date, $end_date);
                 $compare_total_revenue = array_sum($compare_daily_revenue);
 
                 $compare_stats = array(
@@ -243,7 +243,7 @@ if ($date_preset && $date_preset !== 'custom') {
                     'form_title' => $compare_form_obj['title'],
                     'total_revenue' => $compare_total_revenue > 0 ? $compare_total_revenue : null
                 );
-                 $compare_daily_entries = gf_quickreports_get_daily_entries($compare_form, $start_date, $end_date);
+                 $compare_daily_entries = gr_quickreports_get_daily_entries($compare_form, $start_date, $end_date);
                  $compare_days_count = count($compare_daily_entries);
                  $compare_avg_per_day = $compare_days_count > 0 ? array_sum($compare_daily_entries) / $compare_days_count : 0;
             }
@@ -269,7 +269,7 @@ if ($date_preset && $date_preset !== 'custom') {
                         <tr>
                             <td><?php echo esc_html($form_data['form_title']); ?></td>
                             <?php if ($show_by === 'per_day'): 
-                                $form_daily_entries = gf_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
+                                $form_daily_entries = gr_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
                                 $days_count = count($form_daily_entries);
                                 $form_avg_per_day = $days_count > 0 ? $form_data['entry_count'] / $days_count : 0;
                             ?>
@@ -345,13 +345,13 @@ if ($date_preset && $date_preset !== 'custom') {
     $chart_data_values = !empty($daily_entries) ? array_values($daily_entries) : [];
 
     // Revenue Data - using the new helper function
-    $daily_revenue = gf_quickreports_get_daily_revenue($selected_form, $start_date, $end_date);
+    $daily_revenue = gr_quickreports_get_daily_revenue($selected_form, $start_date, $end_date);
     $revenue_chart_labels = !empty($daily_revenue) ? array_keys($daily_revenue) : $chart_labels;
     $revenue_chart_data_values = !empty($daily_revenue) ? array_values($daily_revenue) : array_fill(0, count($chart_labels), 0);
 
     // Comparison Data
-    $compare_chart_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gf_quickreports_get_daily_entries($compare_form, $start_date, $end_date)) : [];
-    $compare_revenue_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gf_quickreports_get_daily_revenue($compare_form, $start_date, $end_date)) : [];
+    $compare_chart_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gr_quickreports_get_daily_entries($compare_form, $start_date, $end_date)) : [];
+    $compare_revenue_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gr_quickreports_get_daily_revenue($compare_form, $start_date, $end_date)) : [];
     
     // Data for "All Forms" individual lines
     $individual_forms_data = [];
@@ -361,7 +361,7 @@ if ($date_preset && $date_preset !== 'custom') {
         $colors = ['#2271b1', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5856d6', '#007aff', '#5ac8fa', '#ffcc02', '#ff9500'];
         foreach ($all_forms_data as $index => $form_data) {
             // Entry data for each form
-            $form_daily_entries = gf_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
+            $form_daily_entries = gr_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
             $individual_forms_data[] = [
                 'label' => $form_data['form_title'],
                 'data' => array_values($form_daily_entries),
@@ -374,7 +374,7 @@ if ($date_preset && $date_preset !== 'custom') {
 
             // Revenue data for each form
             if ($form_data['has_products']) {
-                $form_daily_revenue = gf_quickreports_get_daily_revenue($form_data['form_id'], $start_date, $end_date);
+                $form_daily_revenue = gr_quickreports_get_daily_revenue($form_data['form_id'], $start_date, $end_date);
                  if (array_sum($form_daily_revenue) > 0) {
                     $individual_revenue_data[] = [
                         'label' => $form_data['form_title'],

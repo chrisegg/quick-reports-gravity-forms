@@ -30,14 +30,14 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('GF_QUICKREPORTS_VERSION', '1.0.0');
-define('GF_QUICKREPORTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
-define('GF_QUICKREPORTS_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('GR_QUICKREPORTS_VERSION', '1.0.0');
+define('GR_QUICKREPORTS_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('GR_QUICKREPORTS_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 /**
  * Main plugin class
  */
-class GF_QuickReports {
+class GR_QuickReports {
     /**
      * Plugin instance
      */
@@ -60,10 +60,10 @@ class GF_QuickReports {
         add_action('init', array($this, 'init'));
         add_action('admin_menu', array($this, 'add_menu_page'), 20);
         add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
-        add_action('wp_ajax_gf_quickreports_export_csv', array($this, 'handle_csv_export'));
-        add_action('wp_ajax_gf_quickreports_export_pdf', array($this, 'handle_pdf_export'));
-        add_action('wp_ajax_gf_quickreports_get_compare_forms', array($this, 'get_compare_forms'));
-        add_action('wp_ajax_gf_quickreports_get_date_presets', array($this, 'get_date_presets'));
+        add_action('wp_ajax_gr_quickreports_export_csv', array($this, 'handle_csv_export'));
+        add_action('wp_ajax_gr_quickreports_export_pdf', array($this, 'handle_pdf_export'));
+        add_action('wp_ajax_gr_quickreports_get_compare_forms', array($this, 'get_compare_forms'));
+        add_action('wp_ajax_gr_quickreports_get_date_presets', array($this, 'get_date_presets'));
     }
 
     /**
@@ -82,7 +82,7 @@ class GF_QuickReports {
             esc_html__('Quick Reports', 'gf-quickreports'),
             esc_html__('Quick Reports', 'gf-quickreports'),
             'manage_options',
-            'gf_quickreports',
+            'gr_quickreports',
             array($this, 'render_reports_page')
         );
     }
@@ -91,14 +91,14 @@ class GF_QuickReports {
      * Enqueue assets
      */
     public function enqueue_assets($hook) {
-        if ($hook !== 'forms_page_gf_quickreports') {
+        if ($hook !== 'forms_page_gr_quickreports') {
             return;
         }
 
         // Enqueue Chart.js
         wp_enqueue_script(
             'chartjs',
-            GF_QUICKREPORTS_PLUGIN_URL . 'assets/js/lib/chart.min.js',
+            GR_QUICKREPORTS_PLUGIN_URL . 'assets/js/lib/chart.min.js',
             array(),
             '3.9.1',
             true
@@ -106,25 +106,25 @@ class GF_QuickReports {
 
         // Enqueue plugin scripts
         wp_enqueue_script(
-            'gf-quickreports-admin',
-            GF_QUICKREPORTS_PLUGIN_URL . 'assets/js/admin.js',
+            'gr-quickreports-admin',
+            GR_QUICKREPORTS_PLUGIN_URL . 'assets/js/admin.js',
             array('jquery', 'chartjs'),
-            GF_QUICKREPORTS_VERSION,
+            GR_QUICKREPORTS_VERSION,
             true
         );
 
         // Enqueue plugin styles
         wp_enqueue_style(
-            'gf-quickreports-admin',
-            GF_QUICKREPORTS_PLUGIN_URL . 'assets/css/admin.css',
+            'gr-quickreports-admin',
+            GR_QUICKREPORTS_PLUGIN_URL . 'assets/css/admin.css',
             array(),
-            GF_QUICKREPORTS_VERSION
+            GR_QUICKREPORTS_VERSION
         );
 
         // Localize script
-        wp_localize_script('gf-quickreports-admin', 'gf_quickreports_ajax', array(
+        wp_localize_script('gr-quickreports-admin', 'gr_quickreports_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('gf_quickreports_nonce')
+            'nonce' => wp_create_nonce('gr_quickreports_nonce')
         ));
     }
 
@@ -410,7 +410,7 @@ class GF_QuickReports {
      */
     public function handle_csv_export() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
             wp_die('Security check failed');
         }
 
@@ -608,7 +608,7 @@ class GF_QuickReports {
      */
     public function handle_pdf_export() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
             wp_die('Security check failed');
         }
 
@@ -636,7 +636,7 @@ class GF_QuickReports {
 
         try {
             // Generate PDF using DOMPDF
-            require_once GF_QUICKREPORTS_PLUGIN_DIR . 'vendor/autoload.php';
+            require_once GR_QUICKREPORTS_PLUGIN_DIR . 'vendor/autoload.php';
             
             $dompdf = new \Dompdf\Dompdf();
             $dompdf->setPaper('A4', 'portrait');
@@ -908,7 +908,7 @@ class GF_QuickReports {
      */
     public function get_compare_forms() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
             wp_die('Security check failed');
         }
 
@@ -943,7 +943,7 @@ class GF_QuickReports {
      */
     public function get_date_presets() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'gf_quickreports_nonce')) {
+        if (!wp_verify_nonce($_POST['nonce'], 'gr_quickreports_nonce')) {
             wp_die('Security check failed');
         }
 
@@ -1000,16 +1000,16 @@ class GF_QuickReports {
 }
 
 // Initialize plugin
-add_action('plugins_loaded', array('GF_QuickReports', 'get_instance'));
+add_action('plugins_loaded', array('GR_QuickReports', 'get_instance'));
 
 // Global function for template compatibility
-function gf_quickreports_get_daily_entries($form_id, $start_date, $end_date) {
-    return GF_QuickReports::get_daily_entries($form_id, $start_date, $end_date);
+function gr_quickreports_get_daily_entries($form_id, $start_date, $end_date) {
+    return GR_QuickReports::get_daily_entries($form_id, $start_date, $end_date);
 }
 
 /**
  * Wrapper for getting daily revenue data.
  */
-function gf_quickreports_get_daily_revenue($form_id, $start_date, $end_date) {
-    return GF_QuickReports::get_daily_revenue($form_id, $start_date, $end_date);
+function gr_quickreports_get_daily_revenue($form_id, $start_date, $end_date) {
+    return GR_QuickReports::get_daily_revenue($form_id, $start_date, $end_date);
 }

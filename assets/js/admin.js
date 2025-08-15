@@ -481,8 +481,8 @@ jQuery(document).ready(function($) {
         
         // Create form data for AJAX
         var formData = new FormData();
-        formData.append('action', 'gf_quickreports_export_' + type);
-        formData.append('nonce', gf_quickreports_ajax.nonce);
+        formData.append('action', 'gr_quickreports_export_' + type);
+        formData.append('nonce', gr_quickreports_ajax.nonce);
         formData.append('form_id', formId);
         formData.append('start_date', startDate);
         formData.append('end_date', endDate);
@@ -516,7 +516,7 @@ jQuery(document).ready(function($) {
         
         // Make AJAX request
         $.ajax({
-            url: gf_quickreports_ajax.ajax_url,
+            url: gr_quickreports_ajax.ajax_url,
             type: 'POST',
             data: formData,
             processData: false,
@@ -723,11 +723,11 @@ jQuery(document).ready(function($) {
         
         isPopulatingCompareDropdown = true;
         $.ajax({
-            url: gf_quickreports_ajax.ajax_url,
+            url: gr_quickreports_ajax.ajax_url,
             type: 'POST',
             data: {
-                action: 'gf_quickreports_get_compare_forms',
-                nonce: gf_quickreports_ajax.nonce,
+                action: 'gr_quickreports_get_compare_forms',
+                nonce: gr_quickreports_ajax.nonce,
                 selected_form: selectedForm
             },
             success: function(response) {
@@ -781,11 +781,11 @@ jQuery(document).ready(function($) {
      */
     function updateDateFields(preset) {
         $.ajax({
-            url: gf_quickreports_ajax.ajax_url,
+            url: gr_quickreports_ajax.ajax_url,
             type: 'POST',
             data: {
-                action: 'gf_quickreports_get_date_presets',
-                nonce: gf_quickreports_ajax.nonce,
+                action: 'gr_quickreports_get_date_presets',
+                nonce: gr_quickreports_ajax.nonce,
                 preset: preset
             },
             success: function(response) {
