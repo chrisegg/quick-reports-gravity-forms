@@ -10,13 +10,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 class GF_QuickReports_Reports {
 
 	/**
-	 * Capability required to view reports, export, and use AJAX actions.
+	 * Primary Gravity Forms capability for report access (entry data).
 	 */
 	public static function capability() {
 		return 'gravityforms_view_entries';
 	}
 
+	/**
+	 * Whether the current user may use Quick Reports (page, exports, AJAX).
+	 *
+	 * Includes manage_options so WordPress administrators are not blocked when
+	 * Gravity Forms capabilities are missing from their role (e.g. custom roles,
+	 * Members plugin, or incomplete GF role setup).
+	 */
 	public static function user_can_reports() {
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		if ( current_user_can( 'gravityforms_edit_forms' ) ) {
+			return true;
+		}
 		return current_user_can( self::capability() );
 	}
 
