@@ -8,8 +8,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// Check user capabilities
-if (!current_user_can('manage_options')) {
+// Check user capabilities (Gravity Forms entry access).
+if (!GF_QuickReports_Reports::user_can_reports()) {
     wp_die(__('You do not have sufficient permissions to access this page.', 'gf-quickreports'));
 }
 
@@ -71,7 +71,24 @@ if ($date_preset && $date_preset !== 'custom') {
 <div class="wrap">
     <h1><?php esc_html_e('Quick Reports for Gravity Forms', 'gf-quickreports'); ?></h1>
     <!-- WP Admin TableNav Filters Bar -->
-    <form method="GET">
+    <form method="GET" action="<?php echo esc_url(admin_url('admin.php')); ?>">
+        <?php
+        $preserve_keys = array('page', 'view', 'subview', 'id', 'tab', 'lid', 'aid', 'fid');
+        foreach ($preserve_keys as $key) {
+            if (!isset($_GET[$key])) {
+                continue;
+            }
+            $value = wp_unslash($_GET[$key]);
+            if (!is_scalar($value) || $value === '') {
+                continue;
+            }
+            printf(
+                '<input type="hidden" name="%1$s" value="%2$s" />',
+                esc_attr($key),
+                esc_attr((string) $value)
+            );
+        }
+        ?>
         <div class="tablenav top">
             <div class="alignleft actions">
                 <label for="form_id" class="screen-reader-text"><?php esc_html_e('Select form', 'gf-quickreports'); ?></label>
@@ -136,7 +153,6 @@ if ($date_preset && $date_preset !== 'custom') {
                 <input type="date" name="end" id="end_date" value="<?php echo esc_attr($end_date); ?>">
             </div>
             <div class="alignleft actions">
-                <input type="hidden" name="page" value="gf_quickreports">
                 <input type="hidden" id="current_compare_form_id" value="<?php echo isset($_GET['compare_form_id']) ? esc_attr(wp_unslash($_GET['compare_form_id'])) : ''; ?>">
                 <input type="submit" class="button" value="<?php esc_attr_e('Generate Report', 'gf-quickreports'); ?>">
                 <?php if ($selected_form): ?>

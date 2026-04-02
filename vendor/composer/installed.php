@@ -1,13 +1,13 @@
 <?php return array(
     'root' => array(
         'name' => 'gravityforms/gf-reports',
-        'pretty_version' => '2.x-dev',
-        'version' => '2.9999999.9999999.9999999-dev',
-        'reference' => 'dc27e3c7c0e075bb81ab40377fd7e57b538bab28',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'e96c91b19931d06f7a2776a88a0a99fb5b7a749e',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
-        'dev' => true,
+        'dev' => false,
     ),
     'versions' => array(
         'dompdf/dompdf' => array(
@@ -20,9 +20,9 @@
             'dev_requirement' => false,
         ),
         'gravityforms/gf-reports' => array(
-            'pretty_version' => '2.x-dev',
-            'version' => '2.9999999.9999999.9999999-dev',
-            'reference' => 'dc27e3c7c0e075bb81ab40377fd7e57b538bab28',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'e96c91b19931d06f7a2776a88a0a99fb5b7a749e',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

@@ -3,6 +3,11 @@
     "description": "Advanced reporting add-on for Gravity Forms",
     "type": "wordpress-plugin",
     "require": {
+        "php": "^7.4 || ^8.0",
         "dompdf/dompdf": "^2.0"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
     }
 } 
