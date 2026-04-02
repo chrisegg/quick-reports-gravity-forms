@@ -70,6 +70,30 @@ if ($date_preset && $date_preset !== 'custom') {
 ?>
 <div class="wrap">
     <h1><?php esc_html_e('Quick Reports for Gravity Forms', 'gf-quickreports'); ?></h1>
+    
+    <!-- Tab Navigation -->
+    <div class="gr-main-tabs">
+        <nav class="nav-tab-wrapper">
+            <a href="#entries" id="entries-tab-link" class="nav-tab nav-tab-active" data-tab="entries">
+                <?php esc_html_e('Entry Reports', 'gf-quickreports'); ?>
+            </a>
+            <?php
+            // Check if attribution is enabled
+            $attribution_settings = get_option(GR_AttributionSettings::SETTINGS_OPTION, GR_AttributionSettings::get_default_settings());
+            if (!empty($attribution_settings['enable_attribution'])):
+            ?>
+            <a href="#attribution" id="attribution-tab-link" class="nav-tab" data-tab="attribution">
+                <?php esc_html_e('Attribution Analytics', 'gf-quickreports'); ?>
+            </a>
+            <?php endif; ?>
+            <a href="#comparison" id="comparison-tab-link" class="nav-tab" data-tab="comparison">
+                <?php esc_html_e('A/B Testing', 'gf-quickreports'); ?>
+            </a>
+        </nav>
+    </div>
+    
+    <!-- Entry Reports Tab Content (existing content) -->
+    <div id="entries-tab-content" class="tab-content active">
     <!-- WP Admin TableNav Filters Bar -->
     <form method="GET">
         <div class="tablenav top">
@@ -136,7 +160,7 @@ if ($date_preset && $date_preset !== 'custom') {
                 <input type="date" name="end" id="end_date" value="<?php echo esc_attr($end_date); ?>">
             </div>
             <div class="alignleft actions">
-                <input type="hidden" name="page" value="gf_quickreports">
+                <input type="hidden" name="page" value="gr_quickreports">
                 <input type="hidden" id="current_compare_form_id" value="<?php echo isset($_GET['compare_form_id']) ? esc_attr(wp_unslash($_GET['compare_form_id'])) : ''; ?>">
                 <input type="submit" class="button" value="<?php esc_attr_e('Generate Report', 'gf-quickreports'); ?>">
                 <?php if ($selected_form): ?>
@@ -177,11 +201,11 @@ if ($date_preset && $date_preset !== 'custom') {
                     $entry_count = GFAPI::count_entries($form_id, $search_criteria);
                     
                     // Use new helper for revenue
-                    $daily_revenue = gf_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
+                    $daily_revenue = gr_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
                     $form_revenue = array_sum($daily_revenue);
 
                     // Get daily entries for this form
-                    $form_daily_entries = gf_quickreports_get_daily_entries($form_id, $start_date, $end_date);
+                    $form_daily_entries = gr_quickreports_get_daily_entries($form_id, $start_date, $end_date);
                     
                     // Aggregate daily entries
                     foreach ($form_daily_entries as $date => $count) {
@@ -221,12 +245,12 @@ if ($date_preset && $date_preset !== 'custom') {
                 $form = GFAPI::get_form($form_id);
 
                 // Calculate daily entries for chart and per-day summary
-                $daily_entries = gf_quickreports_get_daily_entries($form_id, $start_date, $end_date);
+                $daily_entries = gr_quickreports_get_daily_entries($form_id, $start_date, $end_date);
                 $days_count = count($daily_entries);
                 $avg_per_day = $days_count > 0 ? array_sum($daily_entries) / $days_count : 0;
 
                 // Use new helper for revenue
-                $daily_revenue = gf_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
+                $daily_revenue = gr_quickreports_get_daily_revenue($form_id, $start_date, $end_date);
                 $total_revenue = array_sum($daily_revenue);
                 $product_fields = array('has_products' => $total_revenue > 0);
             }
@@ -235,7 +259,7 @@ if ($date_preset && $date_preset !== 'custom') {
             if ($compare_form && $selected_form !== 'all') {
                 $compare_entry_count = GFAPI::count_entries($compare_form, $search_criteria);
                 $compare_form_obj = GFAPI::get_form($compare_form);
-                $compare_daily_revenue = gf_quickreports_get_daily_revenue($compare_form, $start_date, $end_date);
+                $compare_daily_revenue = gr_quickreports_get_daily_revenue($compare_form, $start_date, $end_date);
                 $compare_total_revenue = array_sum($compare_daily_revenue);
 
                 $compare_stats = array(
@@ -243,7 +267,7 @@ if ($date_preset && $date_preset !== 'custom') {
                     'form_title' => $compare_form_obj['title'],
                     'total_revenue' => $compare_total_revenue > 0 ? $compare_total_revenue : null
                 );
-                 $compare_daily_entries = gf_quickreports_get_daily_entries($compare_form, $start_date, $end_date);
+                 $compare_daily_entries = gr_quickreports_get_daily_entries($compare_form, $start_date, $end_date);
                  $compare_days_count = count($compare_daily_entries);
                  $compare_avg_per_day = $compare_days_count > 0 ? array_sum($compare_daily_entries) / $compare_days_count : 0;
             }
@@ -269,7 +293,7 @@ if ($date_preset && $date_preset !== 'custom') {
                         <tr>
                             <td><?php echo esc_html($form_data['form_title']); ?></td>
                             <?php if ($show_by === 'per_day'): 
-                                $form_daily_entries = gf_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
+                                $form_daily_entries = gr_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
                                 $days_count = count($form_daily_entries);
                                 $form_avg_per_day = $days_count > 0 ? $form_data['entry_count'] / $days_count : 0;
                             ?>
@@ -345,13 +369,13 @@ if ($date_preset && $date_preset !== 'custom') {
     $chart_data_values = !empty($daily_entries) ? array_values($daily_entries) : [];
 
     // Revenue Data - using the new helper function
-    $daily_revenue = gf_quickreports_get_daily_revenue($selected_form, $start_date, $end_date);
+    $daily_revenue = gr_quickreports_get_daily_revenue($selected_form, $start_date, $end_date);
     $revenue_chart_labels = !empty($daily_revenue) ? array_keys($daily_revenue) : $chart_labels;
     $revenue_chart_data_values = !empty($daily_revenue) ? array_values($daily_revenue) : array_fill(0, count($chart_labels), 0);
 
     // Comparison Data
-    $compare_chart_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gf_quickreports_get_daily_entries($compare_form, $start_date, $end_date)) : [];
-    $compare_revenue_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gf_quickreports_get_daily_revenue($compare_form, $start_date, $end_date)) : [];
+    $compare_chart_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gr_quickreports_get_daily_entries($compare_form, $start_date, $end_date)) : [];
+    $compare_revenue_data_values = ($compare_form && $selected_form !== 'all') ? array_values(gr_quickreports_get_daily_revenue($compare_form, $start_date, $end_date)) : [];
     
     // Data for "All Forms" individual lines
     $individual_forms_data = [];
@@ -361,7 +385,7 @@ if ($date_preset && $date_preset !== 'custom') {
         $colors = ['#2271b1', '#34c759', '#ff9500', '#ff3b30', '#af52de', '#5856d6', '#007aff', '#5ac8fa', '#ffcc02', '#ff9500'];
         foreach ($all_forms_data as $index => $form_data) {
             // Entry data for each form
-            $form_daily_entries = gf_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
+            $form_daily_entries = gr_quickreports_get_daily_entries($form_data['form_id'], $start_date, $end_date);
             $individual_forms_data[] = [
                 'label' => $form_data['form_title'],
                 'data' => array_values($form_daily_entries),
@@ -374,7 +398,7 @@ if ($date_preset && $date_preset !== 'custom') {
 
             // Revenue data for each form
             if ($form_data['has_products']) {
-                $form_daily_revenue = gf_quickreports_get_daily_revenue($form_data['form_id'], $start_date, $end_date);
+                $form_daily_revenue = gr_quickreports_get_daily_revenue($form_data['form_id'], $start_date, $end_date);
                  if (array_sum($form_daily_revenue) > 0) {
                     $individual_revenue_data[] = [
                         'label' => $form_data['form_title'],
@@ -418,4 +442,301 @@ if ($date_preset && $date_preset !== 'custom') {
     wp_add_inline_script('gf-quickreports-admin', $chart_script, 'before');
     ?>
 <?php endif; ?>
+
+    </div> <!-- #entries-tab-content -->
+    
+    <!-- Attribution Analytics Tab Content -->
+    <?php
+    $attribution_settings = get_option(GR_AttributionSettings::SETTINGS_OPTION, GR_AttributionSettings::get_default_settings());
+    if (!empty($attribution_settings['enable_attribution'])):
+    ?>
+    <div id="attribution-tab-content" class="tab-content">
+        <?php include plugin_dir_path(__FILE__) . 'attribution-dashboard.php'; ?>
+    </div>
+    <?php endif; ?>
+    
+    <!-- A/B Testing Tab Content -->
+    <div id="comparison-tab-content" class="tab-content">
+        <div class="comparison-dashboard">
+            <h2><?php esc_html_e('A/B Testing Dashboard', 'gf-quickreports'); ?></h2>
+            <p><?php esc_html_e('Compare the performance of different forms or attribution channels side-by-side.', 'gf-quickreports'); ?></p>
+            
+            <div class="comparison-setup">
+                <div class="comparison-filters">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label><?php esc_html_e('Compare Type:', 'gf-quickreports'); ?></label>
+                            <select id="comparison-type">
+                                <option value="forms"><?php esc_html_e('Form vs Form', 'gf-quickreports'); ?></option>
+                                <?php if (!empty($attribution_settings['enable_attribution'])): ?>
+                                <option value="channels"><?php esc_html_e('Channel vs Channel', 'gf-quickreports'); ?></option>
+                                <option value="campaigns"><?php esc_html_e('Campaign vs Campaign', 'gf-quickreports'); ?></option>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label><?php esc_html_e('Item A:', 'gf-quickreports'); ?></label>
+                            <select id="comparison-item-a" class="comparison-selector">
+                                <option value=""><?php esc_html_e('Select...', 'gf-quickreports'); ?></option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label><?php esc_html_e('Item B:', 'gf-quickreports'); ?></label>
+                            <select id="comparison-item-b" class="comparison-selector">
+                                <option value=""><?php esc_html_e('Select...', 'gf-quickreports'); ?></option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label><?php esc_html_e('Date Range:', 'gf-quickreports'); ?></label>
+                            <input type="date" id="comparison-start-date" value="<?php echo esc_attr(gmdate('Y-m-d', strtotime('-30 days'))); ?>">
+                            <input type="date" id="comparison-end-date" value="<?php echo esc_attr(gmdate('Y-m-d')); ?>">
+                        </div>
+                        
+                        <div class="filter-group">
+                            <button type="button" id="run-comparison" class="button button-primary">
+                                <?php esc_html_e('Run Comparison', 'gf-quickreports'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="comparison-results" class="comparison-results" style="display: none;">
+                    <div class="comparison-summary">
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <h4 id="item-a-name"><?php esc_html_e('Item A', 'gf-quickreports'); ?></h4>
+                                <div class="metric-grid">
+                                    <div class="metric">
+                                        <span class="metric-label"><?php esc_html_e('Entries', 'gf-quickreports'); ?></span>
+                                        <span class="metric-value" id="item-a-entries">0</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label"><?php esc_html_e('Revenue', 'gf-quickreports'); ?></span>
+                                        <span class="metric-value" id="item-a-revenue">$0</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label"><?php esc_html_e('Conversion Rate', 'gf-quickreports'); ?></span>
+                                        <span class="metric-value" id="item-a-conversion">—</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="summary-comparison">
+                                <div class="vs-indicator">
+                                    <span><?php esc_html_e('VS', 'gf-quickreports'); ?></span>
+                                </div>
+                                <div class="performance-indicator">
+                                    <div id="winner-badge" class="winner-badge" style="display: none;">
+                                        <span id="winner-text"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="summary-item">
+                                <h4 id="item-b-name"><?php esc_html_e('Item B', 'gf-quickreports'); ?></h4>
+                                <div class="metric-grid">
+                                    <div class="metric">
+                                        <span class="metric-label"><?php esc_html_e('Entries', 'gf-quickreports'); ?></span>
+                                        <span class="metric-value" id="item-b-entries">0</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label"><?php esc_html_e('Revenue', 'gf-quickreports'); ?></span>
+                                        <span class="metric-value" id="item-b-revenue">$0</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label"><?php esc_html_e('Conversion Rate', 'gf-quickreports'); ?></span>
+                                        <span class="metric-value" id="item-b-conversion">—</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="comparison-charts">
+                        <div class="chart-row">
+                            <div class="chart-container">
+                                <h3><?php esc_html_e('Entries Comparison', 'gf-quickreports'); ?></h3>
+                                <canvas id="comparison-entries-chart" width="400" height="300"></canvas>
+                            </div>
+                            <div class="chart-container">
+                                <h3><?php esc_html_e('Revenue Comparison', 'gf-quickreports'); ?></h3>
+                                <canvas id="comparison-revenue-chart" width="400" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tab Navigation JavaScript and Styles -->
+    <style>
+    .gr-main-tabs {
+        margin-bottom: 20px;
+    }
+    
+    .gr-main-tabs .nav-tab-wrapper {
+        border-bottom: 1px solid #ccd0d4;
+        margin-bottom: 0;
+    }
+    
+    .tab-content {
+        display: none;
+        padding: 20px 0;
+    }
+    
+    .tab-content.active {
+        display: block;
+    }
+    
+    .comparison-dashboard {
+        background: #fff;
+        padding: 20px;
+        border: 1px solid #ccd0d4;
+        border-radius: 4px;
+    }
+    
+    .comparison-setup {
+        margin-top: 20px;
+    }
+    
+    .comparison-filters {
+        background: #f8f9fa;
+        padding: 20px;
+        border: 1px solid #e1e5e9;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    
+    .comparison-results {
+        margin-top: 30px;
+    }
+    
+    .comparison-summary {
+        background: #fff;
+        border: 1px solid #ccd0d4;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .summary-grid {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 30px;
+        align-items: center;
+    }
+    
+    .summary-item h4 {
+        text-align: center;
+        margin-bottom: 15px;
+        color: #1d2327;
+    }
+    
+    .metric-grid {
+        display: grid;
+        gap: 15px;
+    }
+    
+    .metric {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+    }
+    
+    .metric-label {
+        font-weight: 600;
+        color: #646970;
+    }
+    
+    .metric-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1d2327;
+    }
+    
+    .summary-comparison {
+        text-align: center;
+    }
+    
+    .vs-indicator {
+        background: #2271b1;
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 50px;
+        font-weight: 600;
+        margin-bottom: 15px;
+    }
+    
+    .winner-badge {
+        background: #00a32a;
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .comparison-charts .chart-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .comparison-charts .chart-container {
+        background: #fff;
+        border: 1px solid #ccd0d4;
+        border-radius: 4px;
+        padding: 20px;
+    }
+    
+    @media (max-width: 768px) {
+        .summary-grid {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .comparison-charts .chart-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    </style>
+    
+    <script>
+    jQuery(document).ready(function($) {
+        // Tab switching functionality
+        $('.nav-tab').on('click', function(e) {
+            e.preventDefault();
+            
+            var tab = $(this).data('tab');
+            
+            // Update tab appearance
+            $('.nav-tab').removeClass('nav-tab-active');
+            $(this).addClass('nav-tab-active');
+            
+            // Show/hide tab content
+            $('.tab-content').removeClass('active');
+            $('#' + tab + '-tab-content').addClass('active');
+            
+            // Update URL hash without triggering scroll
+            if (history.pushState) {
+                history.pushState(null, null, '#' + tab);
+            }
+        });
+        
+        // Initialize from URL hash
+        var hash = window.location.hash.substring(1);
+        if (hash && $('#' + hash + '-tab-link').length) {
+            $('#' + hash + '-tab-link').trigger('click');
+        }
+    });
+    </script>
+
 </div> <!-- .wrap --> 
