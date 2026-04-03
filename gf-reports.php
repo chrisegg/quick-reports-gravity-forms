@@ -3,7 +3,7 @@
  * Plugin Name: Quick Reports for Gravity Forms
  * Plugin URI: https://gravityranger.com/plugins/quick-reports-gravity-forms
  * Description: Advanced reporting and visualization for Gravity Forms entries
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Chris Eggleston
  * Author URI: https://gravityranger.com
  * Text Domain: gf-quickreports
@@ -28,7 +28,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'GF_QUICKREPORTS_VERSION', '1.0.0' );
+define( 'GF_QUICKREPORTS_VERSION', '1.0.1' );
 define( 'GF_QUICKREPORTS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'GF_QUICKREPORTS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 

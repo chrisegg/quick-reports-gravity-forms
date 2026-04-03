@@ -1,18 +1,31 @@
 /**
  * Gravity Forms Quick Reports Admin JavaScript
  *
- * Verbose console logging: set window.GF_QUICKREPORTS_DEBUG = true in the console
- * and reload, or enable WP_DEBUG in wp-config.php (debug flag is passed via gf_quickreports_ajax.debug).
+ * Verbose console logging: add &gf_qr_debug=1 to the Reports screen URL, or set
+ * window.GF_QUICKREPORTS_DEBUG = true and reload, or enable WP_DEBUG (see gf_quickreports_ajax.debug).
  */
 
 jQuery(document).ready(function($) {
 
     var QR_LOG = '[GF QuickReports]';
 
+    (function qrBootBanner() {
+        var build = (typeof gf_quickreports_ajax !== 'undefined' && gf_quickreports_ajax && gf_quickreports_ajax.build) ? gf_quickreports_ajax.build : '?';
+        console.info(
+            QR_LOG,
+            'loaded (build ' + build + '). Verbose logs: add &gf_qr_debug=1 to this page URL, or WP_DEBUG, or GF_QUICKREPORTS_DEBUG = true then reload.'
+        );
+    })();
+
     function gfQrDebugEnabled() {
         if (window.GF_QUICKREPORTS_DEBUG === true) {
             return true;
         }
+        try {
+            if (window.location && window.location.search && window.location.search.indexOf('gf_qr_debug=1') !== -1) {
+                return true;
+            }
+        } catch (ignore) {}
         if (typeof gf_quickreports_ajax !== 'undefined' && gf_quickreports_ajax && gf_quickreports_ajax.debug) {
             return true;
         }

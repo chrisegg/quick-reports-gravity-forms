@@ -47,6 +47,20 @@ class GF_QuickReports_Addon extends GFAddOn {
 		);
 	}
 
+	/**
+	 * Plugin version plus file mtime so browsers do not keep stale admin.js after updates.
+	 *
+	 * @param string $relative Path under the plugin directory, e.g. assets/js/admin.js.
+	 * @return string
+	 */
+	private function asset_version( $relative ) {
+		$path = GF_QUICKREPORTS_PLUGIN_DIR . ltrim( $relative, '/' );
+		if ( is_readable( $path ) ) {
+			return $this->_version . '.' . (string) filemtime( $path );
+		}
+		return $this->_version;
+	}
+
 	public function init() {
 		parent::init();
 		load_plugin_textdomain( 'gf-quickreports', false, dirname( plugin_basename( $this->_full_path ) ) . '/languages' );
@@ -66,7 +80,7 @@ class GF_QuickReports_Addon extends GFAddOn {
 			array(
 				'handle'    => 'gf-quickreports-chartjs',
 				'src'       => $this->get_base_url() . 'assets/js/lib/chart.min.js',
-				'version'   => '3.9.1',
+				'version'   => $this->asset_version( 'assets/js/lib/chart.min.js' ),
 				'deps'      => array(),
 				'in_footer' => true,
 				'enqueue'   => array(
@@ -76,7 +90,7 @@ class GF_QuickReports_Addon extends GFAddOn {
 			array(
 				'handle'    => 'gf-quickreports-admin',
 				'src'       => $this->get_base_url() . 'assets/js/admin.js',
-				'version'   => $this->_version,
+				'version'   => $this->asset_version( 'assets/js/admin.js' ),
 				'deps'      => array( 'jquery', 'gf-quickreports-chartjs' ),
 				'in_footer' => true,
 				'callback'  => array( $this, 'localize_admin_script' ),
@@ -93,7 +107,7 @@ class GF_QuickReports_Addon extends GFAddOn {
 			array(
 				'handle'  => 'gf-quickreports-admin',
 				'src'     => $this->get_base_url() . 'assets/css/admin.css',
-				'version' => $this->_version,
+				'version' => $this->asset_version( 'assets/css/admin.css' ),
 				'enqueue' => array(
 					array( 'admin_page' => array( 'plugin_page' ) ),
 				),
@@ -111,6 +125,9 @@ class GF_QuickReports_Addon extends GFAddOn {
 		if ( empty( $script['handle'] ) || 'gf-quickreports-admin' !== $script['handle'] ) {
 			return;
 		}
+		$admin_js = GF_QUICKREPORTS_PLUGIN_DIR . 'assets/js/admin.js';
+		$build    = is_readable( $admin_js ) ? (string) filemtime( $admin_js ) : '0';
+
 		wp_localize_script(
 			'gf-quickreports-admin',
 			'gf_quickreports_ajax',
@@ -118,6 +135,7 @@ class GF_QuickReports_Addon extends GFAddOn {
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
 				'nonce'    => wp_create_nonce( 'gf_quickreports_nonce' ),
 				'debug'    => ( defined( 'WP_DEBUG' ) && WP_DEBUG ),
+				'build'    => $build,
 			)
 		);
 	}
