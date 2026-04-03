@@ -54,6 +54,7 @@ class GF_QuickReports_Addon extends GFAddOn {
 
 	public function init_admin() {
 		parent::init_admin();
+		add_filter( 'gform_addon_navigation', array( $this, 'move_plugin_menu_to_bottom' ), 99999 );
 		add_action( 'wp_ajax_gf_quickreports_export_csv', array( 'GF_QuickReports_Reports', 'handle_csv_export' ) );
 		add_action( 'wp_ajax_gf_quickreports_export_pdf', array( 'GF_QuickReports_Reports', 'handle_pdf_export' ) );
 		add_action( 'wp_ajax_gf_quickreports_get_compare_forms', array( 'GF_QuickReports_Reports', 'get_compare_forms' ) );
@@ -122,6 +123,45 @@ class GF_QuickReports_Addon extends GFAddOn {
 
 	public function get_menu_icon() {
 		return 'gform-icon--cog';
+	}
+
+	/**
+	 * Place this add-on’s Forms submenu entry last (with other late add-ons, e.g. Form Locator, Feed Queue).
+	 *
+	 * @param array $menu_items Items from gform_addon_navigation.
+	 * @return array
+	 */
+	public function move_plugin_menu_to_bottom( $menu_items ) {
+		if ( ! is_array( $menu_items ) || empty( $menu_items ) ) {
+			return $menu_items;
+		}
+		$slug = is_callable( array( $this, 'get_slug' ) ) ? $this->get_slug() : $this->_slug;
+		$ours = null;
+		foreach ( $menu_items as $i => $item ) {
+			if ( isset( $item['name'] ) && (string) $item['name'] === (string) $slug ) {
+				$ours = $item;
+				unset( $menu_items[ $i ] );
+				break;
+			}
+		}
+		if ( null === $ours ) {
+			foreach ( $menu_items as $i => $item ) {
+				if ( empty( $item['callback'] ) || ! is_array( $item['callback'] ) ) {
+					continue;
+				}
+				if ( isset( $item['callback'][0] ) && $item['callback'][0] === $this ) {
+					$ours = $item;
+					unset( $menu_items[ $i ] );
+					break;
+				}
+			}
+		}
+		if ( null === $ours ) {
+			return $menu_items;
+		}
+		$menu_items   = array_values( $menu_items );
+		$menu_items[] = $ours;
+		return $menu_items;
 	}
 
 	public function plugin_page() {

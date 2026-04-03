@@ -15,7 +15,7 @@ return [
 	// Optional. GitHub Personal Access Token for private repositories.
 	// Create at: GitHub → Settings → Developer settings → Personal access tokens
 	// Required scope: repo
-	'github_token' => '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',
+	'github_token' => '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',
 
 	// Required. Repository in "owner/repo" format. Must match the webhook payload.
 	'repo' => 'chrisegg/quick-reports-gravity-forms',
