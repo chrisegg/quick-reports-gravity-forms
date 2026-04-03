@@ -1,1 +1,4 @@
 /vendor/
+
+# Local deploy secrets — never commit (GitHub revokes PATs found in repos)
+deploy-config.php
