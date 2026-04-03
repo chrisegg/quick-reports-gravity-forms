@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Quick Reports for Gravity Forms
- * Plugin URI: https://gravityranger.com/plugins/gravity-forms-quick-reports-addon
+ * Plugin URI: https://gravityranger.com/plugins/quick-reports-gravity-forms
  * Description: Advanced reporting and visualization for Gravity Forms entries
  * Version: 1.0.0
  * Author: Chris Eggleston
