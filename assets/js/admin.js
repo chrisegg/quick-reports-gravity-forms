@@ -1,20 +1,70 @@
 /**
  * Gravity Forms Quick Reports Admin JavaScript
+ *
+ * Verbose console logging: set window.GF_QUICKREPORTS_DEBUG = true in the console
+ * and reload, or enable WP_DEBUG in wp-config.php (debug flag is passed via gf_quickreports_ajax.debug).
  */
 
 jQuery(document).ready(function($) {
+
+    var QR_LOG = '[GF QuickReports]';
+
+    function gfQrDebugEnabled() {
+        if (window.GF_QUICKREPORTS_DEBUG === true) {
+            return true;
+        }
+        if (typeof gf_quickreports_ajax !== 'undefined' && gf_quickreports_ajax && gf_quickreports_ajax.debug) {
+            return true;
+        }
+        return false;
+    }
+
+    function gfQrLog() {
+        if (!gfQrDebugEnabled()) {
+            return;
+        }
+        var a = Array.prototype.slice.call(arguments);
+        a.unshift(QR_LOG);
+        console.log.apply(console, a);
+    }
+
+    function gfQrError() {
+        var a = Array.prototype.slice.call(arguments);
+        a.unshift(QR_LOG);
+        console.error.apply(console, a);
+    }
+
+    gfQrLog('admin.js ready', {
+        hasAjaxConfig: typeof gf_quickreports_ajax !== 'undefined',
+        ajaxUrl: (typeof gf_quickreports_ajax !== 'undefined' && gf_quickreports_ajax.ajax_url) ? '(set)' : '(missing)',
+        chartJs: typeof Chart !== 'undefined' ? (Chart.version || 'present') : '(missing)',
+        chartData: typeof window.chartData !== 'undefined',
+        revenueChartData: typeof window.revenueChartData !== 'undefined',
+        individualFormsData: typeof window.individualFormsData !== 'undefined',
+        individualRevenueData: typeof window.individualRevenueData !== 'undefined'
+    });
+
+    if (typeof gf_quickreports_ajax === 'undefined') {
+        gfQrError('gf_quickreports_ajax is undefined — exports and compare/preset AJAX will fail. Check script localization for handle gf-quickreports-admin.');
+    }
     
     // Flag to track if comparison dropdown is being populated
     var isPopulatingCompareDropdown = false;
     
     // Initialize chart if data is available
     if (typeof window.chartData !== 'undefined') {
+        gfQrLog('init entries chart');
         initializeChart();
+    } else {
+        gfQrLog('skip entries chart: window.chartData undefined');
     }
     
     // Initialize revenue chart if data is available
     if (typeof window.revenueChartData !== 'undefined') {
+        gfQrLog('init revenue chart');
         initializeRevenueChart();
+    } else {
+        gfQrLog('skip revenue chart: window.revenueChartData undefined');
     }
     
     // Export functionality
@@ -126,9 +176,14 @@ jQuery(document).ready(function($) {
     function initializeChart() {
         var canvas = document.getElementById('entriesChart');
         if (!canvas) {
+            gfQrLog('initializeChart: no #entriesChart canvas');
             return;
         }
-        
+        if (typeof Chart === 'undefined') {
+            gfQrError('initializeChart: Chart.js global missing — is gf-quickreports-chartjs enqueued?');
+            return;
+        }
+
         try {
             var ctx = canvas.getContext('2d');
             var chartData = window.chartData;
@@ -192,6 +247,7 @@ jQuery(document).ready(function($) {
             
             // No data
             if (!hasData) {
+                gfQrLog('entries chart: no data for current mode/view, showing placeholder', { mode: mode, chartView: chartView });
                 $('#entriesChart').hide();
                 $('#chartjs-no-data').show();
                 return;
@@ -204,6 +260,8 @@ jQuery(document).ready(function($) {
             var chartType = (mode === 'total') ? 'bar' : 'line';
             var labels = (mode === 'total') ? ['Total'] : (chartData.labels || []);
             
+            gfQrLog('entries chart build', { chartType: chartType, labelsCount: labels.length, datasetsCount: datasets.length, hasData: hasData, mode: mode, chartView: chartView });
+
             window.currentChart = new Chart(ctx, {
                 type: chartType,
                 data: {
@@ -282,6 +340,7 @@ jQuery(document).ready(function($) {
             });
             
         } catch (error) {
+            gfQrError('initializeChart failed', error && error.message ? error.message : error, error && error.stack ? error.stack : '');
             $('#entriesChart').hide();
             $('#chartjs-no-data').text('Error creating chart: ' + error.message).show();
         }
@@ -293,10 +352,14 @@ jQuery(document).ready(function($) {
     function initializeRevenueChart() {
         var canvas = document.getElementById('revenueChart');
         if (!canvas) {
+            gfQrLog('initializeRevenueChart: no #revenueChart canvas');
             return;
         }
-        
-        
+        if (typeof Chart === 'undefined') {
+            gfQrError('initializeRevenueChart: Chart.js global missing');
+            return;
+        }
+
         try {
             var ctx = canvas.getContext('2d');
             var chartData = window.revenueChartData;
@@ -364,6 +427,7 @@ jQuery(document).ready(function($) {
 
             // No data
             if (!hasData) {
+                gfQrLog('revenue chart: no data for current mode/view, showing placeholder', { mode: mode, chartView: chartView });
                 $('#revenueChart').hide();
                 $('#revenue-chartjs-no-data').show();
                 return;
@@ -376,6 +440,8 @@ jQuery(document).ready(function($) {
             var chartType = (mode === 'total') ? 'bar' : 'line';
             var labels = (mode === 'total') ? ['Total'] : (chartData.labels || []);
             
+            gfQrLog('revenue chart build', { chartType: chartType, labelsCount: labels.length, datasetsCount: datasets.length, hasData: hasData, mode: mode, chartView: chartView });
+
             window.currentRevenueChart = new Chart(ctx, {
                 type: chartType,
                 data: {
@@ -450,6 +516,7 @@ jQuery(document).ready(function($) {
             });
             
         } catch (error) {
+            gfQrError('initializeRevenueChart failed', error && error.message ? error.message : error, error && error.stack ? error.stack : '');
             $('#revenueChart').hide();
             $('#revenue-chartjs-no-data').text('Error creating revenue chart: ' + error.message).show();
         }
@@ -459,6 +526,12 @@ jQuery(document).ready(function($) {
      * Export report as CSV or PDF
      */
     function exportReport(type) {
+        if (typeof gf_quickreports_ajax === 'undefined') {
+            gfQrError('exportReport: gf_quickreports_ajax missing');
+            showNotice('Export is unavailable: script configuration missing. Check the browser console.', 'error');
+            return;
+        }
+
         var formId = $('#form_id').val();
         var startDate = $('#start_date').val();
         var endDate = $('#end_date').val();
@@ -473,6 +546,8 @@ jQuery(document).ready(function($) {
             showNotice('Please select a form to export.', 'error');
             return;
         }
+
+        gfQrLog('export start', { type: type, formId: formId, startDate: startDate, endDate: endDate, compareFormId: compareFormId, action: 'gf_quickreports_export_' + type });
         
         // Show loading state
         var $button = $('#export-' + type);
@@ -501,13 +576,20 @@ jQuery(document).ready(function($) {
                 if (chartCanvas && window.currentChart) {
                     var chartImage = chartCanvas.toDataURL('image/png');
                     formData.append('chart_data', chartImage);
+                    gfQrLog('PDF: attached entries chart image', { length: chartImage.length });
+                } else {
+                    gfQrLog('PDF: no entries chart snapshot', { hasCanvas: !!chartCanvas, hasCurrentChart: !!window.currentChart });
                 }
                 
                 if (revenueChartCanvas && window.currentRevenueChart) {
                     var revenueChartImage = revenueChartCanvas.toDataURL('image/png');
                     formData.append('revenue_chart_data', revenueChartImage);
+                    gfQrLog('PDF: attached revenue chart image', { length: revenueChartImage.length });
+                } else {
+                    gfQrLog('PDF: no revenue chart snapshot', { hasCanvas: !!revenueChartCanvas, hasCurrentRevenueChart: !!window.currentRevenueChart });
                 }
             } catch (e) {
+                gfQrError('PDF chart capture error', e);
                 showNotice('Error capturing charts for PDF. Please try again.', 'error');
                 $button.text(originalText).prop('disabled', false);
                 return;
@@ -526,8 +608,35 @@ jQuery(document).ready(function($) {
                 xhr.responseType = type === 'pdf' ? 'arraybuffer' : 'blob';
                 return xhr;
             },
-            success: function(response) {
+            success: function(response, textStatus, jqXHR) {
                 try {
+                    var ct = (jqXHR && jqXHR.getResponseHeader) ? jqXHR.getResponseHeader('Content-Type') : '';
+                    var respBytes = 0;
+                    if (response) {
+                        if (typeof response.byteLength === 'number') {
+                            respBytes = response.byteLength;
+                        } else if (typeof response.size === 'number') {
+                            respBytes = response.size;
+                        } else if (typeof response.length === 'number') {
+                            respBytes = response.length;
+                        }
+                    }
+                    gfQrLog('export response', { type: type, textStatus: textStatus, contentType: ct, byteLength: respBytes });
+
+                    if (type === 'pdf' && response && response.byteLength !== undefined) {
+                        var bytes = new Uint8Array(response.slice(0, 5));
+                        var header = String.fromCharCode.apply(null, bytes);
+                        if (header.indexOf('%PDF') !== 0) {
+                            gfQrError('export PDF: response is not a PDF (expected %PDF header). Got:', header, '— server may have returned HTML (nonce/permission error or PHP notice).');
+                            try {
+                                var asText = new TextDecoder('utf-8').decode(response.slice(0, 2000));
+                                gfQrError('export PDF body preview (first 2k chars):', asText);
+                            } catch (ignore) {}
+                            showNotice('PDF export failed: server did not return a valid PDF. Enable debug logging and check the console.', 'error');
+                            return;
+                        }
+                    }
+
                     // Create blob from response
                     var blob;
                     if (type === 'pdf') {
@@ -548,10 +657,12 @@ jQuery(document).ready(function($) {
                     
                     showNotice(type.toUpperCase() + ' export completed successfully!', 'success');
                 } catch (e) {
+                    gfQrError('export success handler error', e);
                     showNotice('Error processing ' + type.toUpperCase() + ' export response.', 'error');
                 }
             },
-            error: function() {
+            error: function(xhr, status, err) {
+                gfQrError('export AJAX error', { status: xhr.status, statusText: xhr.statusText, state: status, err: err, responsePreview: (xhr.responseText || '').substring(0, 500) });
                 showNotice('Export failed. Please try again.', 'error');
             },
             complete: function() {

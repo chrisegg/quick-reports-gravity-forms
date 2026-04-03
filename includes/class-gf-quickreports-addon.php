@@ -117,6 +117,7 @@ class GF_QuickReports_Addon extends GFAddOn {
 			array(
 				'ajax_url' => admin_url( 'admin-ajax.php' ),
 				'nonce'    => wp_create_nonce( 'gf_quickreports_nonce' ),
+				'debug'    => ( defined( 'WP_DEBUG' ) && WP_DEBUG ),
 			)
 		);
 	}
