@@ -5,15 +5,24 @@
  * window.GF_QUICKREPORTS_DEBUG = true and reload, or enable WP_DEBUG (see gf_quickreports_ajax.debug).
  */
 
+/* Runs as soon as this file loads (before jQuery ready). If you never see this, the file is not enqueued. */
+(function (w) {
+    try {
+        if (w.console && w.console.warn) {
+            w.console.warn('[GF QuickReports] admin.js file loaded (before DOM ready).');
+        }
+    } catch (ignore) {}
+}(window));
+
 jQuery(document).ready(function($) {
 
     var QR_LOG = '[GF QuickReports]';
 
     (function qrBootBanner() {
         var build = (typeof gf_quickreports_ajax !== 'undefined' && gf_quickreports_ajax && gf_quickreports_ajax.build) ? gf_quickreports_ajax.build : '?';
-        console.info(
+        console.warn(
             QR_LOG,
-            'loaded (build ' + build + '). Verbose logs: add &gf_qr_debug=1 to this page URL, or WP_DEBUG, or GF_QUICKREPORTS_DEBUG = true then reload.'
+            'DOM ready (build ' + build + '). Verbose logs: &gf_qr_debug=1 on URL, or WP_DEBUG, or GF_QUICKREPORTS_DEBUG = true.'
         );
     })();
 
@@ -201,6 +210,7 @@ jQuery(document).ready(function($) {
             var ctx = canvas.getContext('2d');
             var chartData = window.chartData;
             var compareChartData = window.compareChartData;
+            var individualForms = (typeof window.individualFormsData !== 'undefined' && Array.isArray(window.individualFormsData)) ? window.individualFormsData : [];
             var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? 
                 formatFormLabel(window.selectedFormLabel) : 
@@ -212,10 +222,10 @@ jQuery(document).ready(function($) {
             var mode = typeof window.chartMode !== 'undefined' ? window.chartMode : 'per_day';
             
 
-            if (mode === 'total' && chartView === 'individual' && window.individualFormsData.length > 0) {
+            if (mode === 'total' && chartView === 'individual' && individualForms.length > 0) {
                 // Bar chart showing total entries for each individual form
-                labels = window.individualFormsData.map(d => d.label);
-                datasets = window.individualFormsData.map(d => ({
+                labels = individualForms.map(d => d.label);
+                datasets = individualForms.map(d => ({
                     label: d.label,
                     data: [d.data.reduce((a, b) => a + b, 0)],
                     backgroundColor: d.backgroundColor,
@@ -223,10 +233,10 @@ jQuery(document).ready(function($) {
                     borderWidth: 1
                 }));
                 hasData = datasets.some(d => d.data[0] > 0);
-            } else if (chartView === 'individual' && window.individualFormsData.length > 0) {
+            } else if (chartView === 'individual' && individualForms.length > 0) {
                 // Line chart showing individual forms over time
                 labels = chartData.labels || [];
-                datasets = window.individualFormsData;
+                datasets = individualForms;
                 hasData = datasets.some(d => d.data.some(v => v > 0));
             } else {
                 // Default aggregated view (line or bar)
@@ -377,6 +387,7 @@ jQuery(document).ready(function($) {
             var ctx = canvas.getContext('2d');
             var chartData = window.revenueChartData;
             var compareChartData = window.compareRevenueChartData;
+            var individualRevenue = (typeof window.individualRevenueData !== 'undefined' && Array.isArray(window.individualRevenueData)) ? window.individualRevenueData : [];
             var chartView = ($('#form_id').val() === 'all') ? ($('#chart_view').val() || 'individual') : 'aggregated';
             var mainLabel = typeof window.selectedFormLabel !== 'undefined' ? formatFormLabel(window.selectedFormLabel) : 'Revenue';
             var compareLabel = formatFormLabel($('#compare_form_id option:selected').text() || 'Compare Revenue');
@@ -388,10 +399,10 @@ jQuery(document).ready(function($) {
 
 
             // Refactored logic to handle different chart views
-            if (mode === 'total' && chartView === 'individual' && window.individualRevenueData.length > 0) {
+            if (mode === 'total' && chartView === 'individual' && individualRevenue.length > 0) {
                 // Bar chart showing total revenue for each individual form
-                labels = window.individualRevenueData.map(d => d.label);
-                datasets = window.individualRevenueData.map(d => ({
+                labels = individualRevenue.map(d => d.label);
+                datasets = individualRevenue.map(d => ({
                     label: d.label,
                     data: [d.data.reduce((a, b) => a + b, 0)],
                     backgroundColor: d.backgroundColor,
@@ -399,10 +410,10 @@ jQuery(document).ready(function($) {
                     borderWidth: 1
                 }));
                 hasData = datasets.some(d => d.data[0] > 0);
-            } else if (chartView === 'individual' && window.individualRevenueData.length > 0) {
+            } else if (chartView === 'individual' && individualRevenue.length > 0) {
                 // Line chart showing individual forms' revenue over time
                 labels = chartData.labels || [];
-                datasets = window.individualRevenueData;
+                datasets = individualRevenue;
                 hasData = datasets.some(d => d.data.some(v => v > 0));
             } else {
                 // Default aggregated view (line or bar)

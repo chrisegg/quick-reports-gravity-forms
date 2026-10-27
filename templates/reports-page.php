@@ -71,7 +71,7 @@ if ($date_preset && $date_preset !== 'custom') {
 <div class="wrap">
     <h1><?php esc_html_e('Quick Reports for Gravity Forms', 'gf-quickreports'); ?></h1>
     <!-- WP Admin TableNav Filters Bar -->
-    <form method="GET" action="<?php echo esc_url(admin_url('admin.php')); ?>">
+    <form id="gf-quickreports-form" method="GET" action="<?php echo esc_url(admin_url('admin.php')); ?>">
         <?php
         $preserve_keys = array('page', 'view', 'subview', 'id', 'tab', 'lid', 'aid', 'fid');
         foreach ($preserve_keys as $key) {
